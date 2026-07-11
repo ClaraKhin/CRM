@@ -35,6 +35,8 @@ import {
   UserIcon } from
 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
+import { ROLE_LABELS } from '../../lib/supabase';
 const notifications = [
 {
   title: 'Maya Patel opened your quote',
@@ -61,6 +63,14 @@ export function Topbar({
 }: {onOpenPalette: () => void;onOpenDrawer: () => void;}) {
   const { colorMode, toggleColorMode } = useColorMode();
   const navigate = useNavigate();
+  const { profile, signOut } = useAuth();
+  const displayName = profile?.full_name ?? 'CRM User';
+  const roleLabel = profile ? ROLE_LABELS[profile.role] : 'Sales Executive';
+  const avatarColor = profile?.avatar_color ?? '#ffdccb';
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login', { replace: true });
+  };
   return (
     <Flex
       as="header"
@@ -215,9 +225,9 @@ export function Topbar({
           <MenuButton ml="2px">
             <Avatar
               size="sm"
-              name="Renee Walker"
-              bg="#ffdccb"
-              color="#b6451e"
+              name={displayName}
+              bg={avatarColor}
+              color="#46506a"
               fontSize="11px"
               cursor="pointer" />
             
@@ -225,10 +235,10 @@ export function Topbar({
           <MenuList bg="app.surface" borderColor="app.border">
             <Box px="12px" py="6px">
               <Text fontSize="13px" fontWeight="700">
-                Renee Walker
+                {displayName}
               </Text>
               <Text fontSize="11px" color="app.subtle">
-                Sales Manager
+                {roleLabel}
               </Text>
             </Box>
             <MenuDivider />
@@ -253,7 +263,8 @@ export function Topbar({
               bg="app.surface"
               icon={<LogOutIcon size={15} />}
               fontSize="13px"
-              color="#c23c3c">
+              color="#c23c3c"
+              onClick={handleSignOut}>
               
               Sign out
             </MenuItem>
