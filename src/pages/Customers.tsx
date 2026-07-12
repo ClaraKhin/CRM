@@ -91,6 +91,7 @@ export function Customers() {
   const [selected, setSelected] = useState<Customer | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [activities, setActivities] = useState<{ id: string; type: string; subject: string; description: string; created_at: string }[]>([]);
+  const [customerDeals, setCustomerDeals] = useState<{ id: string; title: string; value: number; stage: string; project_volume: number; deal_type: string; sale_type: string; quotation_status: string; close_date: string | null }[]>([]);
 
   // Form state
   const [form, setForm] = useState({
@@ -133,14 +134,12 @@ export function Customers() {
     setSelected(customer);
     detailDrawer.onOpen();
     if (session?.user && customer.person_id) {
-      const { data } = await supabase
-        .from('activities')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .eq('person_id', customer.person_id)
-        .order('created_at', { ascending: false })
-        .limit(10);
-      setActivities((data ?? []) as typeof activities);
+      const [aData, dData] = await Promise.all([
+        supabase.from('activities').select('*').eq('user_id', session.user.id).eq('person_id', customer.person_id).order('created_at', { ascending: false }).limit(10),
+        supabase.from('deals').select('*').eq('user_id', session.user.id).eq('customer_id', customer.id).order('created_at', { ascending: false })
+      ]);
+      setActivities((aData.data ?? []) as typeof activities);
+      setCustomerDeals((dData.data ?? []) as typeof customerDeals);
     }
   };
 
@@ -400,6 +399,25 @@ export function Customers() {
                     <Text fontSize="12px" color="app.subtle">{selected.notes}</Text>
                   </>
                 )}
+
+                <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mt="20px" mb="9px">PROJECTS & DEALS ({customerDeals.length})</Text>
+                <Box>
+                  {customerDeals.length === 0 ? (
+                    <Text fontSize="12px" color="app.faint">No deals linked to this customer yet.</Text>
+                  ) : customerDeals.map((deal) => (
+                    <Flex key={deal.id} align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="8px">
+                      <Box flex="1">
+                        <Text fontSize="12px" fontWeight="700">{deal.title}</Text>
+                        <Text fontSize="10px" color="app.subtle">{deal.deal_type ?? 'Project'} · {deal.sale_type ?? 'New'} · {deal.stage}</Text>
+                        {(deal.project_volume ?? 0) > 0 && <Text fontSize="10px" color="app.faint">Volume: ${(deal.project_volume ?? 0).toLocaleString()}</Text>}
+                      </Box>
+                      <Box textAlign="right">
+                        <Text fontSize="13px" fontWeight="800">${(deal.value ?? 0).toLocaleString()}</Text>
+                        {deal.quotation_status && deal.quotation_status !== 'None' && <Text fontSize="9px" color="brand.600">Quote: {deal.quotation_status}</Text>}
+                      </Box>
+                    </Flex>
+                  ))}
+                </Box>
 
                 <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mt="20px" mb="9px">ACTIVITY TIMELINE</Text>
                 <Box>

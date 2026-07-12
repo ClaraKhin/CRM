@@ -18,6 +18,7 @@ import {
   Clock3Icon,
   LayoutListIcon,
   PlusIcon,
+  RefreshCwIcon,
   TargetIcon,
   TrendingUpIcon,
   UsersRoundIcon } from
@@ -31,16 +32,22 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
-type Deal = { id: string; title: string; value: number; stage: string; probability: number; owner_name: string; close_date: string | null };
+type Deal = { id: string; title: string; value: number; stage: string; probability: number; owner_name: string; close_date: string | null; customer_id: string | null; project_volume: number };
 type Task = { id: string; title: string; done: boolean; due_date: string | null; priority: string; owner_name: string };
 type Activity = { id: string; type: string; subject: string; description: string; created_at: string };
+type Customer = { id: string; person_id: string | null; status: string; industry: string };
+type Person = { id: string; name: string; company: string; avatar_color: string };
 
 export function Dashboard() {
   const [period, setPeriod] = useState('This month');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [activities, setActivities] = useState<Activity[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [people, setPeople] = useState<Person[]>([]);
   const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [lastSync, setLastSync] = useState<string | null>(null);
   const { session, profile } = useAuth();
   const navigate = useNavigate();
   const toast = useToast();
@@ -48,31 +55,42 @@ export function Dashboard() {
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const [dRes, tRes, aRes] = await Promise.all([
+    const [dRes, tRes, aRes, cRes, pRes] = await Promise.all([
       supabase.from('deals').select('*').eq('user_id', session.user.id),
       supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(6),
-      supabase.from('activities').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(5)
+      supabase.from('activities').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(5),
+      supabase.from('customers').select('*').eq('user_id', session.user.id),
+      supabase.from('people').select('*').eq('user_id', session.user.id)
     ]);
     setDeals((dRes.data ?? []) as Deal[]);
     setTasks((tRes.data ?? []) as Task[]);
     setActivities((aRes.data ?? []) as Activity[]);
+    setCustomers((cRes.data ?? []) as Customer[]);
+    setPeople((pRes.data ?? []) as Person[]);
     setLoading(false);
   }, [session]);
 
   useEffect(() => { load(); }, [load]);
 
+  const syncData = async () => {
+    setSyncing(true);
+    await load();
+    setLastSync(new Date().toLocaleTimeString());
+    setSyncing(false);
+    toast({ title: 'Dashboard data synced', status: 'success', duration: 1600, position: 'top-right' });
+  };
+
   const wonValue = deals.filter((d) => d.stage === 'Won').reduce((s, d) => s + d.value, 0);
   const openValue = deals.filter((d) => d.stage !== 'Won' && d.stage !== 'Lost').reduce((s, d) => s + d.value, 0);
+  const projectVolume = deals.reduce((s, d) => s + (d.project_volume ?? 0), 0);
   const qualifiedCount = deals.filter((d) => d.stage === 'Qualified' || d.stage === 'Meeting' || d.stage === 'Proposal' || d.stage === 'Negotiation').length;
   const avgProb = deals.length ? Math.round(deals.reduce((s, d) => s + d.probability, 0) / deals.length) : 0;
+  const activeCustomers = customers.filter((c) => c.status === 'Customer' || c.status === 'VIP').length;
 
   const todayTasks = tasks.filter((t) => !t.done).slice(0, 4);
   const upcomingFollowups = deals.filter((d) => d.close_date && d.stage !== 'Won' && d.stage !== 'Lost').slice(0, 4);
 
-  const showCopilot = () => {
-    navigate('/assistant');
-  };
-
+  const showCopilot = () => { navigate('/assistant'); };
   const greetingName = profile?.full_name?.split(' ')[0] ?? 'Renee';
 
   return (
@@ -86,6 +104,9 @@ export function Dashboard() {
             <Button size="sm" borderRadius="9px" variant="outline" borderColor="app.border" fontSize="12px" rightIcon={<ChevronDownIcon size={14} />} onClick={() => setPeriod(period === 'This month' ? 'Last month' : 'This month')}>
               {period}
             </Button>
+            <Button size="sm" borderRadius="9px" variant="outline" borderColor="app.border" fontSize="12px" leftIcon={<RefreshCwIcon size={14} />} isLoading={syncing} onClick={syncData}>
+              {lastSync ? `Synced ${lastSync}` : 'Sync'}
+            </Button>
             <Button size="sm" borderRadius="9px" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} leftIcon={<BotIcon size={15} />} fontSize="12px" onClick={showCopilot}>
               Ask Copilot
             </Button>
@@ -95,8 +116,8 @@ export function Dashboard() {
       <Grid templateColumns={{ base: 'repeat(2, 1fr)', xl: 'repeat(4, 1fr)' }} gap={{ base: '11px', md: '16px' }}>
         <MetricCard label="Revenue this month" value={`$${wonValue.toLocaleString()}`} trend="18.6%" icon={CircleDollarSignIcon} accent="#242d4b" />
         <MetricCard label="Open pipeline" value={`$${openValue.toLocaleString()}`} trend="8.1%" icon={TrendingUpIcon} accent="#8374d9" />
-        <MetricCard label="Qualified deals" value={String(qualifiedCount)} trend="12.3%" icon={UsersRoundIcon} accent="#e9683f" />
-        <MetricCard label="Avg win probability" value={`${avgProb}%`} trend="5.2%" icon={TargetIcon} accent="#2d9c79" />
+        <MetricCard label="Project volume" value={`$${projectVolume.toLocaleString()}`} trend="12.3%" icon={TargetIcon} accent="#e9683f" />
+        <MetricCard label="Active customers" value={String(activeCustomers)} trend="5.2%" icon={UsersRoundIcon} accent="#2d9c79" />
       </Grid>
 
       <Grid mt="18px" templateColumns={{ base: '1fr', xl: 'minmax(0, 1.62fr) minmax(290px, .9fr)' }} gap="18px">
@@ -108,7 +129,9 @@ export function Dashboard() {
         <Card>
           <CardHeader title="Today's tasks" subtitle="Your next 24 hours" right={<Icon as={CalendarClockIcon} boxSize="18px" color="#e9653c" />} />
           <Stack px="19px" py="8px" spacing="0">
-            {todayTasks.length === 0 ? (
+            {loading ? (
+              <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">Loading...</Text>
+            ) : todayTasks.length === 0 ? (
               <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">No pending tasks. You're all caught up!</Text>
             ) : todayTasks.map((task, i) => (
               <Flex key={task.id} py="11px" borderBottom={i === todayTasks.length - 1 ? '0' : '1px solid'} borderColor="app.border" gap="9px" align="center">
@@ -125,7 +148,9 @@ export function Dashboard() {
         <Card>
           <CardHeader title="Upcoming follow-ups" subtitle="Closing soon" />
           <Stack px="19px" py="8px" spacing="0">
-            {upcomingFollowups.length === 0 ? (
+            {loading ? (
+              <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">Loading...</Text>
+            ) : upcomingFollowups.length === 0 ? (
               <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">No upcoming follow-ups.</Text>
             ) : upcomingFollowups.map((deal, i) => (
               <Flex key={deal.id} py="11px" borderBottom={i === upcomingFollowups.length - 1 ? '0' : '1px solid'} borderColor="app.border" gap="9px" align="center">
@@ -144,7 +169,9 @@ export function Dashboard() {
         <Card>
           <CardHeader title="Recent activity" subtitle="Latest from your team" right={<Icon as={LayoutListIcon} boxSize="16px" color="app.faint" />} />
           <Stack px="19px" py="8px" spacing="0">
-            {activities.length === 0 ? (
+            {loading ? (
+              <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">Loading...</Text>
+            ) : activities.length === 0 ? (
               <Text py="20px" fontSize="12px" color="app.faint" textAlign="center">No recent activity.</Text>
             ) : activities.map((item, i) => (
               <Flex key={item.id} py="11px" borderBottom={i === activities.length - 1 ? '0' : '1px solid'} borderColor="app.border" gap="9px">

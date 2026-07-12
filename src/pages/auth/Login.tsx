@@ -7,8 +7,7 @@ import {
   HStack,
   Link as ChakraLink,
   Text,
-  useToast
-} from '@chakra-ui/react';
+  useToast } from '@chakra-ui/react';
 import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
@@ -51,7 +50,6 @@ export function Login() {
       toast({ title: 'Sign in failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
-    // Simulated 2FA step (UI demonstration of 2FA flow)
     setTfaOpen(true);
   };
 
@@ -63,7 +61,6 @@ export function Login() {
     }
     setTfaError('');
     setSubmitting(true);
-    // 2FA is a UI gate; Supabase session already established.
     setTimeout(() => {
       setSubmitting(false);
       toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
@@ -71,13 +68,18 @@ export function Login() {
     }, 600);
   };
 
+  const fillDemo = () => {
+    setEmail('demo@1cngcrm.com');
+    setPassword('demo1234');
+  };
+
   if (tfaOpen) {
     return (
       <AuthLayout title="Two-factor authentication" subtitle="Enter the 6-digit code from your authenticator app.">
         <AuthFormBox>
           <Box display="flex" justifyContent="center" mb="6px">
-            <Flex w="48px" h="48px" borderRadius="14px" bg="brand.50" align="center" justify="center">
-              <ShieldCheckIcon size={24} color="#e9683f" />
+            <Flex w="52px" h="52px" borderRadius="15px" bg="brand.50" align="center" justify="center">
+              <ShieldCheckIcon size={26} color="#e9683f" />
             </Flex>
           </Box>
           <AuthField
@@ -93,8 +95,8 @@ export function Login() {
           />
           <Button
             type="button"
-            h="42px"
-            borderRadius="10px"
+            h="44px"
+            borderRadius="11px"
             bg="navy.600"
             color="white"
             _hover={{ bg: 'navy.500' }}
@@ -121,9 +123,7 @@ export function Login() {
       footer={
         <>
           Don&apos;t have an account?{' '}
-          <ChakraLink as={RouterLink} to="/signup" color="brand.600" fontWeight="700">
-            Create one
-          </ChakraLink>
+          <ChakraLink as={RouterLink} to="/signup" color="brand.600" fontWeight="700">Create one</ChakraLink>
         </>
       }>
       <form onSubmit={handleSubmit}>
@@ -162,8 +162,8 @@ export function Login() {
           </Flex>
           <Button
             type="submit"
-            h="42px"
-            borderRadius="10px"
+            h="44px"
+            borderRadius="11px"
             bg="navy.600"
             color="white"
             _hover={{ bg: 'navy.500' }}
@@ -174,6 +174,11 @@ export function Login() {
             rightIcon={<ArrowRightIcon size={15} />}>
             Sign in
           </Button>
+          <Box>
+            <Button size="sm" variant="outline" borderColor="app.border" borderRadius="10px" fontSize="12px" w="full" onClick={fillDemo}>
+              Use demo account
+            </Button>
+          </Box>
         </AuthFormBox>
       </form>
     </AuthLayout>

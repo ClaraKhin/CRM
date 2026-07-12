@@ -5,6 +5,7 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Grid,
   HStack,
   Icon,
   Input,
@@ -19,9 +20,8 @@ import {
   Thead,
   Tr,
   useDisclosure,
-  useToast } from
-'@chakra-ui/react';
-import { DownloadIcon, FileTextIcon, PlusIcon, PrinterIcon, Trash2Icon } from 'lucide-react';
+  useToast } from '@chakra-ui/react';
+import { DownloadIcon, FileTextIcon, LinkIcon, PlusIcon, PrinterIcon, Trash2Icon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -33,9 +33,11 @@ import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
 
 type Person = { id: string; name: string; company: string; avatar_color: string };
+type Deal = { id: string; title: string; value: number; person_id: string | null; stage: string };
 type Invoice = {
   id: string;
   person_id: string | null;
+  deal_id: string | null;
   number: string;
   amount: number;
   tax: number;
@@ -53,29 +55,33 @@ export function Invoices() {
   const { session } = useAuth();
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [people, setPeople] = useState<Person[]>([]);
+  const [deals, setDeals] = useState<Deal[]>([]);
   const [loading, setLoading] = useState(true);
   const formDrawer = useDisclosure();
   const confirmDel = useDisclosure();
   const [editing, setEditing] = useState<Invoice | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ number: '', person_id: '', amount: 0, tax: 0, discount: 0, status: 'Draft', due_date: '' });
+  const [form, setForm] = useState({ number: '', person_id: '', deal_id: '', amount: 0, tax: 0, discount: 0, status: 'Draft', due_date: '' });
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const [iRes, pRes] = await Promise.all([
+    const [iRes, pRes, dRes] = await Promise.all([
       supabase.from('invoices').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('people').select('*').eq('user_id', session.user.id)
+      supabase.from('people').select('*').eq('user_id', session.user.id),
+      supabase.from('deals').select('*').eq('user_id', session.user.id)
     ]);
     setInvoices((iRes.data ?? []) as Invoice[]);
     setPeople((pRes.data ?? []) as Person[]);
+    setDeals((dRes.data ?? []) as Deal[]);
     setLoading(false);
   }, [session]);
 
   useEffect(() => { load(); }, [load]);
 
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
+  const dealById = (id: string | null) => deals.find((d) => d.id === id) ?? null;
 
   const outstanding = invoices.filter((i) => i.status !== 'Paid' && i.status !== 'Draft').reduce((s, i) => s + i.amount, 0);
   const paid = invoices.filter((i) => i.status === 'Paid').reduce((s, i) => s + i.amount, 0);
@@ -91,14 +97,25 @@ export function Invoices() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ number: nextNumber(), person_id: '', amount: 0, tax: 0, discount: 0, status: 'Draft', due_date: '' });
+    setForm({ number: nextNumber(), person_id: '', deal_id: '', amount: 0, tax: 0, discount: 0, status: 'Draft', due_date: '' });
     formDrawer.onOpen();
   };
 
   const openEdit = (invoice: Invoice) => {
     setEditing(invoice);
-    setForm({ number: invoice.number, person_id: invoice.person_id ?? '', amount: invoice.amount, tax: invoice.tax, discount: invoice.discount, status: invoice.status, due_date: invoice.due_date ?? '' });
+    setForm({ number: invoice.number, person_id: invoice.person_id ?? '', deal_id: invoice.deal_id ?? '', amount: invoice.amount, tax: invoice.tax, discount: invoice.discount, status: invoice.status, due_date: invoice.due_date ?? '' });
     formDrawer.onOpen();
+  };
+
+  const onDealSelect = (dealId: string) => {
+    const deal = deals.find((d) => d.id === dealId);
+    setForm((prev) => ({
+      ...prev,
+      deal_id: dealId,
+      person_id: deal?.person_id ?? prev.person_id,
+      amount: deal?.value ?? prev.amount,
+      tax: deal ? Math.round(deal.value * 0.1) : prev.tax
+    }));
   };
 
   const handleSubmit = async () => {
@@ -106,16 +123,16 @@ export function Invoices() {
     setSaving(true);
     if (editing) {
       const { error } = await supabase.from('invoices').update({
-        number: form.number, person_id: form.person_id || null, amount: Number(form.amount),
-        tax: Number(form.tax), discount: Number(form.discount), status: form.status,
-        due_date: form.due_date || null
+        number: form.number, person_id: form.person_id || null, deal_id: form.deal_id || null,
+        amount: Number(form.amount), tax: Number(form.tax), discount: Number(form.discount),
+        status: form.status, due_date: form.due_date || null
       }).eq('id', editing.id).eq('user_id', session!.user.id);
       if (!error) toast({ title: 'Invoice updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
       const { error } = await supabase.from('invoices').insert({
         user_id: session!.user.id, number: form.number, person_id: form.person_id || null,
-        amount: Number(form.amount), tax: Number(form.tax), discount: Number(form.discount),
-        status: form.status, due_date: form.due_date || null, payment_history: []
+        deal_id: form.deal_id || null, amount: Number(form.amount), tax: Number(form.tax),
+        discount: Number(form.discount), status: form.status, due_date: form.due_date || null, payment_history: []
       });
       if (!error) toast({ title: 'Invoice created', status: 'success', duration: 2000, position: 'top-right' });
     }
@@ -142,7 +159,8 @@ export function Invoices() {
   const handleExport = () => {
     exportToCsv('invoices.csv', invoices.map((i) => {
       const p = personById(i.person_id);
-      return { number: i.number, customer: p?.company ?? '', amount: i.amount, tax: i.tax, discount: i.discount, status: i.status, due: i.due_date ?? '' };
+      const d = dealById(i.deal_id);
+      return { number: i.number, deal: d?.title ?? '', customer: p?.company ?? '', amount: i.amount, tax: i.tax, discount: i.discount, status: i.status, due: i.due_date ?? '' };
     }));
     toast({ title: 'Exported to CSV', status: 'success', duration: 1800, position: 'top-right' });
   };
@@ -159,7 +177,7 @@ export function Invoices() {
           </HStack>
         } />
 
-      <Flex gap="12px" mb="18px" templateColumns="repeat(3, 1fr)" as={Grid}>
+      <Grid templateColumns="repeat(3, 1fr)" gap="12px" mb="18px">
         {[
           { label: 'Outstanding', value: `$${outstanding.toLocaleString()}`, color: '#b5760f' },
           { label: 'Paid this month', value: `$${paid.toLocaleString()}`, color: '#1c8a5c' },
@@ -170,7 +188,7 @@ export function Invoices() {
             <Text mt="4px" fontFamily="'Plus Jakarta Sans', sans-serif" fontSize={{ base: '15px', md: '19px' }} fontWeight="800" color={item.color}>{item.value}</Text>
           </Card>
         ))}
-      </Flex>
+      </Grid>
 
       <Card>
         <CardHeader title="All invoices" subtitle={`${invoices.length} invoices`} />
@@ -184,6 +202,7 @@ export function Invoices() {
               <Thead>
                 <Tr>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint">Invoice</Th>
+                  <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', md: 'table-cell' }}>Deal</Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', md: 'table-cell' }}>Customer</Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', lg: 'table-cell' }}>Due</Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint">Status</Th>
@@ -194,9 +213,18 @@ export function Invoices() {
               <Tbody>
                 {invoices.map((invoice) => {
                   const person = personById(invoice.person_id);
+                  const deal = dealById(invoice.deal_id);
                   return (
                     <Tr key={invoice.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => openEdit(invoice)}>
                       <Td borderColor="app.border" fontSize="12px" fontWeight="700">{invoice.number}</Td>
+                      <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }}>
+                        {deal ? (
+                          <Flex align="center" gap="4px">
+                            <Icon as={LinkIcon} boxSize="11px" color="brand.500" />
+                            <Text fontSize="11px" fontWeight="600" noOfLines={1}>{deal.title}</Text>
+                          </Flex>
+                        ) : <Text fontSize="11px" color="app.faint">—</Text>}
+                      </Td>
                       <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }} fontSize="12px">{person?.company ?? '—'}</Td>
                       <Td borderColor="app.border" display={{ base: 'none', lg: 'table-cell' }} fontSize="12px" color="app.subtle">{invoice.due_date ?? '—'}</Td>
                       <Td borderColor="app.border"><StatusBadge status={invoice.status} /></Td>
@@ -223,6 +251,13 @@ export function Invoices() {
           <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
         <FormControl>
+          <FormLabel fontSize="12px">Link to deal (project)</FormLabel>
+          <Select value={form.deal_id} onChange={(e) => onDealSelect(e.target.value)} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
+            <option value="">— Select deal —</option>
+            {deals.map((d) => <option key={d.id} value={d.id}>{d.title} (${d.value.toLocaleString()})</option>)}
+          </Select>
+        </FormControl>
+        <FormControl>
           <FormLabel fontSize="12px">Customer</FormLabel>
           <Select value={form.person_id} onChange={(e) => setForm({ ...form, person_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
             <option value="">— Select —</option>
@@ -233,14 +268,16 @@ export function Invoices() {
           <FormLabel fontSize="12px">Amount ($)</FormLabel>
           <Input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: Number(e.target.value) })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Tax ($)</FormLabel>
-          <Input type="number" value={form.tax} onChange={(e) => setForm({ ...form, tax: Number(e.target.value) })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Discount ($)</FormLabel>
-          <Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: Number(e.target.value) })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
-        </FormControl>
+        <Grid templateColumns="1fr 1fr" gap="10px">
+          <FormControl>
+            <FormLabel fontSize="12px">Tax ($)</FormLabel>
+            <Input type="number" value={form.tax} onChange={(e) => setForm({ ...form, tax: Number(e.target.value) })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="12px">Discount ($)</FormLabel>
+            <Input type="number" value={form.discount} onChange={(e) => setForm({ ...form, discount: Number(e.target.value) })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+          </FormControl>
+        </Grid>
         <FormControl>
           <FormLabel fontSize="12px">Due date</FormLabel>
           <Input type="date" value={form.due_date} onChange={(e) => setForm({ ...form, due_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />

@@ -2,12 +2,12 @@ import React, { useState } from 'react';
 import {
   Box,
   Button,
+  Checkbox,
   HStack,
   Link as ChakraLink,
   Text,
-  useToast
-} from '@chakra-ui/react';
-import { ArrowRightIcon, LockIcon, MailIcon, UserIcon } from 'lucide-react';
+  useToast } from '@chakra-ui/react';
+import { ArrowRightIcon, CheckCircleIcon, LockIcon, MailIcon, UserIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { AuthField, AuthFormBox } from '../../components/auth/AuthField';
@@ -128,25 +128,19 @@ export function SignUp() {
             autoComplete="new-password"
           />
           <Box>
-            <HStack spacing="8px" align="start">
-              <input
-                type="checkbox"
-                checked={agree}
-                onChange={(e) => setAgree(e.target.checked)}
-                style={{ marginTop: '3px', accentColor: '#e9683f' }}
-              />
+            <Checkbox size="sm" colorScheme="orange" isChecked={agree} onChange={(e) => setAgree(e.target.checked)}>
               <Text fontSize="11px" color="app.subtle" lineHeight="1.5">
                 I agree to the{' '}
                 <ChakraLink color="brand.600" fontWeight="600">Terms of Service</ChakraLink> and{' '}
                 <ChakraLink color="brand.600" fontWeight="600">Privacy Policy</ChakraLink>.
               </Text>
-            </HStack>
+            </Checkbox>
             {errors.terms && <Text fontSize="11px" color="#c23c3c" mt="4px">{errors.terms}</Text>}
           </Box>
           <Button
             type="submit"
-            h="42px"
-            borderRadius="10px"
+            h="44px"
+            borderRadius="11px"
             bg="navy.600"
             color="white"
             _hover={{ bg: 'navy.500' }}
@@ -157,6 +151,10 @@ export function SignUp() {
             rightIcon={<ArrowRightIcon size={15} />}>
             Create account
           </Button>
+          <HStack spacing="6px" justify="center" mt="4px">
+            <CheckCircleIcon size={13} color="#2d9c79" />
+            <Text fontSize="11px" color="app.faint">Free 14-day trial · No credit card required</Text>
+          </HStack>
         </AuthFormBox>
       </form>
     </AuthLayout>
