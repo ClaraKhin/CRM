@@ -18,6 +18,7 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Grid,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -210,6 +211,12 @@ export function Leads() {
     });
     exportToCsv('leads.csv', rows);
     toast({ title: 'Exported to CSV', status: 'success', duration: 1800, position: 'top-right' });
+  };
+
+  const qualifyLead = async (lead: Lead) => {
+    await mutation.update(lead.id, { status: 'Qualified' });
+    toast({ title: 'Lead qualified', status: 'success', duration: 1800, position: 'top-right' });
+    list.refetch();
   };
 
   const checkDuplicate = (lead: Lead) => {

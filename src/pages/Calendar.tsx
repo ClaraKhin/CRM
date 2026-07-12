@@ -6,18 +6,27 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Grid,
   HStack,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
+  Stack,
   Text,
   useDisclosure,
   useToast } from
 '@chakra-ui/react';
-import { PlusIcon } from 'lucide-react';
+import { CalendarIcon, ClockIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { FormDrawer } from '../components/ui/FormDrawer';
+import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -46,8 +55,14 @@ export function Calendar() {
   const [view, setView] = useState<'Month' | 'Week' | 'Day'>('Month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const formDrawer = useDisclosure();
+  const detailModal = useDisclosure();
+  const confirmDel = useDisclosure();
   const [editing, setEditing] = useState<Event | null>(null);
+  const [detailEvent, setDetailEvent] = useState<Event | null>(null);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [dragEventId, setDragEventId] = useState<string | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<number | null>(null);
   const [form, setForm] = useState({ title: '', type: 'Meeting', event_date: '', time: '09:00', sync: '', description: '' });
 
   const load = useCallback(async () => {
@@ -73,9 +88,11 @@ export function Calendar() {
     return d.getDate() === day && d.getMonth() === month && d.getFullYear() === year;
   });
 
+  const formatDate = (day: number) => `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+
   const openCreate = (day?: number) => {
     setEditing(null);
-    const defaultDate = day ? `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}` : '';
+    const defaultDate = day ? formatDate(day) : '';
     setForm({ title: '', type: 'Meeting', event_date: defaultDate, time: '09:00', sync: '', description: '' });
     formDrawer.onOpen();
   };
@@ -84,6 +101,11 @@ export function Calendar() {
     setEditing(event);
     setForm({ title: event.title, type: event.type, event_date: event.event_date, time: event.time, sync: event.sync ?? '', description: event.description });
     formDrawer.onOpen();
+  };
+
+  const openDetail = (event: Event) => {
+    setDetailEvent(event);
+    detailModal.onOpen();
   };
 
   const handleSubmit = async () => {
@@ -108,9 +130,24 @@ export function Calendar() {
     load();
   };
 
-  const handleDelete = async (id: string) => {
-    const { error } = await supabase.from('events').delete().eq('id', id).eq('user_id', session!.user.id);
+  const handleDelete = async () => {
+    if (!deleteId) return;
+    const { error } = await supabase.from('events').delete().eq('id', deleteId).eq('user_id', session!.user.id);
     if (!error) { toast({ title: 'Event deleted', status: 'success', duration: 1800, position: 'top-right' }); load(); }
+    confirmDel.onClose();
+    setDeleteId(null);
+    detailModal.onClose();
+  };
+
+  // Drag and drop: move event to a new date
+  const onEventDrop = async (targetDay: number) => {
+    if (!dragEventId) return;
+    const newDate = formatDate(targetDay);
+    setEvents((prev) => prev.map((e) => e.id === dragEventId ? { ...e, event_date: newDate } : e));
+    await supabase.from('events').update({ event_date: newDate }).eq('id', dragEventId).eq('user_id', session!.user.id);
+    toast({ title: `Event moved to ${newDate}`, status: 'success', duration: 1600, position: 'top-right' });
+    setDragEventId(null);
+    setDragOverDay(null);
   };
 
   const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
@@ -153,13 +190,41 @@ export function Calendar() {
             <Box display="grid" gridTemplateColumns="repeat(7, 1fr)" gap="6px">
               {cells.map((day, i) => {
                 const dayEvents = day ? eventsForDay(day) : [];
+                const isDragOver = dragOverDay === day;
                 return (
-                  <Box key={i} minH={{ base: '64px', md: '92px' }} borderRadius="10px" border="1px solid" borderColor={day && isToday(day) ? '#e9683f' : 'app.border'} bg={day ? 'app.surface' : 'rgba(0,0,0,0.015)'} p="6px" cursor={day ? 'pointer' : 'default'} onClick={() => day && openCreate(day)}>
+                  <Box
+                    key={i}
+                    minH={{ base: '64px', md: '92px' }}
+                    borderRadius="10px"
+                    border={isDragOver ? '2px dashed' : '1px solid'}
+                    borderColor={isDragOver ? '#e9683f' : day && isToday(day) ? '#e9683f' : 'app.border'}
+                    bg={isDragOver ? 'rgba(233,104,63,0.05)' : day ? 'app.surface' : 'rgba(0,0,0,0.015)'}
+                    p="6px"
+                    cursor={day ? 'pointer' : 'default'}
+                    onClick={() => day && openCreate(day)}
+                    onDragOver={(e) => { if (day) { e.preventDefault(); setDragOverDay(day); } }}
+                    onDragLeave={() => setDragOverDay(null)}
+                    onDrop={() => day && onEventDrop(day)}>
                     {day && (
                       <>
                         <Text fontSize="11px" fontWeight={isToday(day) ? '800' : '600'} color={isToday(day) ? '#e9683f' : 'app.subtle'} mb="4px">{day}</Text>
                         {dayEvents.map((event) => (
-                          <Box key={event.id} mb="3px" px="5px" py="3px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} borderLeft="2px solid" borderColor={typeColor[event.type]} onDoubleClick={(e) => { e.stopPropagation(); openEdit(event); }}>
+                          <Box
+                            key={event.id}
+                            draggable
+                            onDragStart={() => setDragEventId(event.id)}
+                            onClick={(e) => { e.stopPropagation(); openDetail(event); }}
+                            mb="3px"
+                            px="5px"
+                            py="3px"
+                            borderRadius="6px"
+                            bg={`${typeColor[event.type]}1a`}
+                            borderLeft="2px solid"
+                            borderColor={typeColor[event.type]}
+                            cursor="grab"
+                            _active={{ cursor: 'grabbing' }}
+                            transition="transform .1s ease"
+                            _hover={{ transform: 'translateX(2px)' }}>
                             <Text fontSize="9px" fontWeight="700" noOfLines={1} color={typeColor[event.type]}>{event.time} {event.title}</Text>
                           </Box>
                         ))}
@@ -174,18 +239,29 @@ export function Calendar() {
           <Box>
             {weekdays.map((day, i) => {
               const dayDate = new Date(year, month, i - offset + 1);
+              const dayNum = dayDate.getDate();
               const dayEvents = events.filter((e) => new Date(e.event_date).toDateString() === dayDate.toDateString());
               return (
-                <Flex key={day} py="10px" borderBottom="1px solid" borderColor="app.border" gap="14px" align="start">
+                <Flex key={day} py="10px" borderBottom="1px solid" borderColor="app.border" gap="14px" align="start"
+                  onDragOver={(e) => e.preventDefault()}
+                  onDrop={() => onEventDrop(dayNum)}>
                   <Box w="60px">
                     <Text fontSize="11px" fontWeight="700" color="app.subtle">{day}</Text>
-                    <Text fontSize="18px" fontWeight="800">{dayDate.getDate()}</Text>
+                    <Text fontSize="18px" fontWeight="800">{dayNum}</Text>
                   </Box>
                   <Box flex="1">
                     {dayEvents.length === 0 ? (
                       <Text fontSize="11px" color="app.faint">No events</Text>
                     ) : dayEvents.map((event) => (
-                      <Flex key={event.id} align="center" gap="8px" py="4px" onDoubleClick={() => openEdit(event)}>
+                      <Flex
+                        key={event.id}
+                        align="center"
+                        gap="8px"
+                        py="4px"
+                        draggable
+                        onDragStart={() => setDragEventId(event.id)}
+                        onClick={() => openDetail(event)}
+                        cursor="pointer">
                         <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="44px">{event.time}</Text>
                         <Box px="8px" py="4px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} flex="1"><Text fontSize="12px" fontWeight="600">{event.title}</Text></Box>
                       </Flex>
@@ -200,18 +276,69 @@ export function Calendar() {
             {events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).length === 0 ? (
               <Text py="40px" textAlign="center" fontSize="13px" color="app.faint">No events today. Click "New event" to add one.</Text>
             ) : events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).map((event) => (
-              <Flex key={event.id} align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" onDoubleClick={() => openEdit(event)}>
+              <Flex key={event.id} align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" onClick={() => openDetail(event)} cursor="pointer">
                 <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="50px">{event.time}</Text>
                 <Box px="8px" py="6px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} borderLeft="2px solid" borderColor={typeColor[event.type]} flex="1">
                   <Text fontSize="13px" fontWeight="600">{event.title}</Text>
                   <Text fontSize="10px" color="app.subtle">{event.type}{event.sync ? ` · ${event.sync}` : ''}</Text>
                 </Box>
-                <Button size="xs" variant="ghost" color="#c23c3c" onClick={() => handleDelete(event.id)}>Delete</Button>
               </Flex>
             ))}
           </Box>
         )}
       </Card>
+
+      {/* Floating detail modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            {detailEvent && (
+              <Flex align="center" gap="10px">
+                <Box w="8px" h="8px" borderRadius="full" bg={typeColor[detailEvent.type] ?? '#6b7488'} />
+                <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{detailEvent.title}</Text>
+              </Flex>
+            )}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            {detailEvent && (
+              <Stack spacing="14px">
+                <Flex gap="8px" flexWrap="wrap">
+                  <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg={`${typeColor[detailEvent.type]}1a`} color={typeColor[detailEvent.type]} textTransform="capitalize">{detailEvent.type}</Badge>
+                  {detailEvent.sync && <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="#e8f0ff" color="#3355c9" textTransform="capitalize">{detailEvent.sync} sync</Badge>}
+                </Flex>
+                <Grid templateColumns="1fr 1fr" gap="10px">
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Date</Text></Flex>
+                    <Text mt="4px" fontSize="14px" fontWeight="700">{new Date(detailEvent.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
+                  </Box>
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Flex align="center" gap="6px"><Icon as={ClockIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Time</Text></Flex>
+                    <Text mt="4px" fontSize="14px" fontWeight="700">{detailEvent.time}</Text>
+                  </Box>
+                </Grid>
+                {detailEvent.description && (
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Text fontSize="10px" color="app.faint" mb="4px">DESCRIPTION</Text>
+                    <Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailEvent.description}</Text>
+                  </Box>
+                )}
+                {detailEvent.sync && (
+                  <Flex align="center" gap="8px" p="12px" bg="#e8f0ff" borderRadius="10px">
+                    <Icon as={RefreshCwIcon} boxSize="14px" color="#3355c9" />
+                    <Text fontSize="11px" color="#3355c9" fontWeight="600">Synced with {detailEvent.sync}</Text>
+                  </Flex>
+                )}
+                <Flex gap="8px" pt="4px">
+                  <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailEvent); }}>Edit event</Button>
+                  <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailEvent.id); confirmDel.onOpen(); }}>Delete</Button>
+                </Flex>
+              </Stack>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
       <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit event' : 'New event'} subtitle={editing ? 'Update event details' : 'Schedule a new event'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
@@ -242,8 +369,9 @@ export function Calendar() {
           <FormLabel fontSize="12px">Description</FormLabel>
           <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Event details..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-        {editing && <Button size="sm" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" onClick={() => { handleDelete(editing.id); formDrawer.onClose(); }}>Delete event</Button>}
       </FormDrawer>
+
+      <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete event" message="Are you sure you want to delete this event?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>
   );
 }

@@ -9,6 +9,12 @@ import {
   HStack,
   Icon,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
   Text,
@@ -50,6 +56,8 @@ export function Products() {
   const formDrawer = useDisclosure();
   const [editing, setEditing] = useState<Product | null>(null);
   const [saving, setSaving] = useState(false);
+  const [detailProduct, setDetailProduct] = useState<Product | null>(null);
+  const detailModal = useDisclosure();
   const [form, setForm] = useState({ name: '', category: 'Platform', price: 0, stock: 0, variants: 1, description: '', image_url: '' });
 
   const load = useCallback(async () => {
@@ -138,7 +146,7 @@ export function Products() {
       ) : (
         <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }} gap="14px">
           {filtered.map((product) => (
-            <Card key={product.id} p="18px" cursor="pointer" _hover={{ transform: 'translateY(-2px)' }} transition="transform .12s ease" onClick={() => openEdit(product)}>
+            <Card key={product.id} p="18px" cursor="pointer" _hover={{ transform: 'translateY(-2px)' }} transition="transform .12s ease" onClick={() => { setDetailProduct(product); detailModal.onOpen(); }}>
               <Flex align="center" justify="space-between">
                 <Flex w="40px" h="40px" align="center" justify="center" borderRadius="12px" bg="app.surfaceAlt">
                   <Icon as={PackageIcon} boxSize="19px" color="#e9683f" />
@@ -199,6 +207,64 @@ export function Products() {
           <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
       </FormDrawer>
+
+      {/* Floating product detail modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            {detailProduct && (
+              <Flex align="center" gap="10px">
+                <Flex w="36px" h="36px" align="center" justify="center" borderRadius="10px" bg="app.surfaceAlt">
+                  <Icon as={PackageIcon} boxSize="18px" color="#e9683f" />
+                </Flex>
+                <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{detailProduct.name}</Text>
+              </Flex>
+            )}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            {detailProduct && (
+              <Stack spacing="14px">
+                <Flex gap="8px" flexWrap="wrap">
+                  <StatusBadge status={detailProduct.status} />
+                  <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle">{detailProduct.category}</Badge>
+                </Flex>
+                <Grid templateColumns="1fr 1fr" gap="10px">
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Text fontSize="10px" color="app.faint">Price</Text>
+                    <Text mt="4px" fontSize="18px" fontWeight="800">${detailProduct.price.toLocaleString()}</Text>
+                  </Box>
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Text fontSize="10px" color="app.faint">Stock</Text>
+                    <Text mt="4px" fontSize="18px" fontWeight="800">{detailProduct.stock}</Text>
+                  </Box>
+                </Grid>
+                <Grid templateColumns="1fr 1fr" gap="10px">
+                  <Box><Text fontSize="10px" color="app.faint">Variants</Text><Text fontSize="12px" fontWeight="600">{detailProduct.variants}</Text></Box>
+                  <Box><Text fontSize="10px" color="app.faint">Category</Text><Text fontSize="12px" fontWeight="600">{detailProduct.category}</Text></Box>
+                </Grid>
+                {detailProduct.description && (
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Text fontSize="10px" color="app.faint" mb="4px">DESCRIPTION</Text>
+                    <Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailProduct.description}</Text>
+                  </Box>
+                )}
+                {detailProduct.image_url && (
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Text fontSize="10px" color="app.faint" mb="4px">IMAGE</Text>
+                    <Text fontSize="11px" color="app.subtle" noOfLines={1}>{detailProduct.image_url}</Text>
+                  </Box>
+                )}
+                <Flex gap="8px" pt="4px">
+                  <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailProduct); }}>Edit product</Button>
+                  <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { handleDelete(detailProduct.id); detailModal.onClose(); }}>Delete</Button>
+                </Flex>
+              </Stack>
+            )}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

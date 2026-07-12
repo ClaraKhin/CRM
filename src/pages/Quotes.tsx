@@ -8,6 +8,12 @@ import {
   HStack,
   Icon,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
   Table,
@@ -63,6 +69,8 @@ export function Quotes() {
   const [editing, setEditing] = useState<Quote | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [detailQuote, setDetailQuote] = useState<Quote | null>(null);
+  const detailModal = useDisclosure();
   const [form, setForm] = useState({ number: '', person_id: '', deal_id: '', amount: 0, tax: 0, status: 'Draft', items: 1, notes: '' });
 
   const load = useCallback(async () => {
@@ -206,7 +214,7 @@ export function Quotes() {
                   const person = personById(quote.person_id);
                   const deal = dealById(quote.deal_id);
                   return (
-                    <Tr key={quote.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => openEdit(quote)}>
+                    <Tr key={quote.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => { setDetailQuote(quote); detailModal.onOpen(); }}>
                       <Td borderColor="app.border">
                         <Text fontSize="12px" fontWeight="700">{quote.number}</Text>
                         <Flex align="center" gap="4px" color="app.faint">
@@ -288,6 +296,80 @@ export function Quotes() {
       </FormDrawer>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete quote" message="Are you sure you want to delete this quote?" confirmLabel="Delete" danger onConfirm={handleDelete} />
+
+      {/* Floating quote detail modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            {detailQuote && (
+              <Flex align="center" gap="10px">
+                <Icon as={FileTextIcon} boxSize="18px" color="brand.500" />
+                <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{detailQuote.number}</Text>
+                <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" ml="auto" bg="brand.50" color="brand.600">v{detailQuote.version}</Badge>
+              </Flex>
+            )}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            {detailQuote && (() => {
+              const person = personById(detailQuote.person_id);
+              const deal = dealById(detailQuote.deal_id);
+              const total = (detailQuote.amount ?? 0) + (detailQuote.tax ?? 0);
+              return (
+                <Stack spacing="14px">
+                  <Flex gap="8px" flexWrap="wrap">
+                    <StatusBadge status={detailQuote.status} />
+                    {deal && <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="brand.50" color="brand.600">Deal: {deal.title}</Badge>}
+                  </Flex>
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Amount</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">${(detailQuote.amount ?? 0).toLocaleString()}</Text>
+                    </Box>
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Tax</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">${(detailQuote.tax ?? 0).toLocaleString()}</Text>
+                    </Box>
+                  </Grid>
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                    <Flex justify="space-between">
+                      <Text fontSize="11px" color="app.subtle">Total (amount + tax)</Text>
+                      <Text fontSize="16px" fontWeight="800">${total.toLocaleString()}</Text>
+                    </Flex>
+                  </Box>
+                  {person && (
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint" mb="8px">CUSTOMER</Text>
+                      <Text fontSize="12px" fontWeight="700">{person.name}</Text>
+                      <Text fontSize="11px" color="app.subtle">{person.company}</Text>
+                    </Box>
+                  )}
+                  {deal && (
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint" mb="8px">LINKED DEAL</Text>
+                      <Flex align="center" gap="8px">
+                        <Icon as={LinkIcon} boxSize="14px" color="brand.500" />
+                        <Text fontSize="12px" fontWeight="600">{deal.title}</Text>
+                      </Flex>
+                    </Box>
+                  )}
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box><Text fontSize="10px" color="app.faint">Items</Text><Text fontSize="12px" fontWeight="600">{detailQuote.items}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Created</Text><Text fontSize="12px" fontWeight="600">{new Date(detailQuote.created_at).toLocaleDateString()}</Text></Box>
+                  </Grid>
+                  {detailQuote.notes && <Box><Text fontSize="10px" color="app.faint" mb="4px">NOTES</Text><Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailQuote.notes}</Text></Box>}
+                  <Flex gap="8px" pt="4px">
+                    {detailQuote.status === 'Draft' && <Button size="sm" flex="1" bg="#1c8a5c" color="white" _hover={{ bg: '#167a4e' }} borderRadius="9px" fontSize="12px" leftIcon={<MailIcon size={13} />} onClick={() => { sendForApproval(detailQuote); detailModal.onClose(); }}>Send</Button>}
+                    <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailQuote); }}>Edit</Button>
+                    <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailQuote.id); confirmDel.onOpen(); }}>Delete</Button>
+                  </Flex>
+                </Stack>
+              );
+            })()}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

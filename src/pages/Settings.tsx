@@ -52,11 +52,6 @@ import { useAuth } from '../context/AuthContext';
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
 
-const plans = [
-  { name: 'Starter', price: '$0', current: false },
-  { name: 'Growth', price: '$49', current: true },
-  { name: 'Enterprise', price: 'Custom', current: false }
-];
 
 type SyncConnection = {
   id: string;
@@ -225,7 +220,7 @@ export function Settings() {
 
       <Tabs colorScheme="orange" variant="soft-rounded">
         <TabList overflowX="auto" pb="4px" gap="4px">
-          {['Profile', 'Team & Roles', 'Integrations', 'API Sync', 'Notifications', 'Billing', 'API Keys', 'Audit Logs'].map((t) => (
+          {['Profile', 'Team & Roles', 'Integrations', 'API Sync', 'Notifications', 'API Keys', 'Audit Logs'].map((t) => (
             <Tab key={t} fontSize="12px" fontWeight="600" whiteSpace="nowrap" _selected={{ bg: 'brand.50', color: 'brand.600' }}>{t}</Tab>
           ))}
         </TabList>
@@ -398,26 +393,6 @@ export function Settings() {
                 </Flex>
               ))}
             </Card>
-          </TabPanel>
-
-          {/* Billing */}
-          <TabPanel px="0">
-            <Grid templateColumns={{ base: '1fr', md: 'repeat(3, 1fr)' }} gap="14px">
-              {plans.map((plan) => (
-                <Card key={plan.name} p="20px" borderColor={plan.current ? 'brand.500' : 'app.border'} borderWidth={plan.current ? '2px' : '1px'}>
-                  <Flex align="center">
-                    <Text fontSize="14px" fontWeight="800">{plan.name}</Text>
-                    {plan.current && <Box ml="auto"><StatusBadge status="Approved" /></Box>}
-                  </Flex>
-                  <Text mt="8px" fontFamily="'Plus Jakarta Sans', sans-serif" fontSize="26px" fontWeight="800">
-                    {plan.price}<Text as="span" fontSize="12px" color="app.subtle" fontWeight="500">/mo</Text>
-                  </Text>
-                  <Button mt="14px" size="sm" w="full" borderRadius="9px" fontSize="12px" isDisabled={plan.current} bg={plan.current ? 'app.surfaceAlt' : 'navy.600'} color={plan.current ? 'app.subtle' : 'white'} _hover={{ bg: plan.current ? 'app.surfaceAlt' : 'navy.500' }} onClick={() => toast({ title: `Switched to ${plan.name}`, status: 'success', duration: 1600, position: 'top-right' })}>
-                    {plan.current ? 'Current plan' : 'Upgrade'}
-                  </Button>
-                </Card>
-              ))}
-            </Grid>
           </TabPanel>
 
           {/* API Keys */}
