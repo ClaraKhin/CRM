@@ -11,12 +11,19 @@ import {
   HStack,
   Icon,
   Input,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
+  Stack,
   Text,
   useDisclosure,
   useToast } from '@chakra-ui/react';
-import { FileTextIcon, PlusIcon, TrendingUpIcon } from 'lucide-react';
+import { FileTextIcon, MailIcon, PhoneIcon, PlusIcon, TrendingUpIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { FormDrawer } from '../components/ui/FormDrawer';
@@ -76,7 +83,9 @@ export function Pipeline() {
   const [loading, setLoading] = useState(true);
   const [dragId, setDragId] = useState<string | null>(null);
   const formDrawer = useDisclosure();
+  const detailModal = useDisclosure();
   const [editing, setEditing] = useState<Deal | null>(null);
+  const [detailDeal, setDetailDeal] = useState<Deal | null>(null);
   const [saving, setSaving] = useState(false);
 
   const [form, setForm] = useState({
@@ -238,6 +247,7 @@ export function Pipeline() {
                         key={deal.id}
                         draggable
                         onDragStart={() => setDragId(deal.id)}
+                        onClick={() => { setDetailDeal(deal); detailModal.onOpen(); }}
                         onDoubleClick={() => openEdit(deal)}
                         mb="8px"
                         p="12px"
@@ -372,6 +382,83 @@ export function Pipeline() {
         </FormControl>
         {editing && <Button size="sm" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" onClick={() => { handleDelete(editing.id); formDrawer.onClose(); }}>Delete deal</Button>}
       </FormDrawer>
+
+      {/* Floating deal detail modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            {detailDeal && (
+              <Flex align="center" gap="10px">
+                <Box w="8px" h="8px" borderRadius="full" bg={stageOrder.find((s) => s.stage === detailDeal.stage)?.tone ?? '#6b7488'} />
+                <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{detailDeal.title}</Text>
+              </Flex>
+            )}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            {detailDeal && (() => {
+              const person = personById(detailDeal.person_id);
+              const customer = customerById(detailDeal.customer_id);
+              return (
+                <Stack spacing="14px">
+                  <Flex gap="8px" flexWrap="wrap">
+                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle" textTransform="capitalize">{detailDeal.deal_type ?? 'Project'}</Badge>
+                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="brand.50" color="brand.600" textTransform="capitalize">{detailDeal.sale_type ?? 'New'}</Badge>
+                    {detailDeal.quotation_status && detailDeal.quotation_status !== 'None' && (
+                      <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="#e8f5ee" color="#1c8a5c" textTransform="capitalize">Quote: {detailDeal.quotation_status}</Badge>
+                    )}
+                  </Flex>
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Deal value</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">${detailDeal.value.toLocaleString()}</Text>
+                    </Box>
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Project volume</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">${(detailDeal.project_volume ?? 0).toLocaleString()}</Text>
+                    </Box>
+                  </Grid>
+                  <Box>
+                    <Flex justify="space-between" mb="6px">
+                      <Text fontSize="11px" color="app.subtle">Win probability</Text>
+                      <Text fontSize="11px" fontWeight="700">{detailDeal.probability}%</Text>
+                    </Flex>
+                    <Box w="full" h="8px" bg="app.surfaceAlt" borderRadius="full" overflow="hidden">
+                      <Box h="full" bg={stageOrder.find((s) => s.stage === detailDeal.stage)?.tone ?? '#e9683f'} borderRadius="full" style={{ width: `${detailDeal.probability}%` }} />
+                    </Box>
+                  </Box>
+                  {person && (
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint" mb="8px">CONTACT</Text>
+                      <Flex align="center" gap="10px">
+                        <Avatar size="sm" name={person.name} bg={person.avatar_color} color="#46506a" />
+                        <Box>
+                          <Text fontSize="12px" fontWeight="700">{person.name}</Text>
+                          <Text fontSize="10px" color="app.subtle">{customer ? personById(customer.person_id)?.company ?? person.company : person.company}</Text>
+                        </Box>
+                      </Flex>
+                      {person.email && <Flex mt="8px" align="center" gap="6px"><Icon as={MailIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{person.email}</Text></Flex>}
+                      {person.phone && <Flex mt="4px" align="center" gap="6px"><Icon as={PhoneIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{person.phone}</Text></Flex>}
+                    </Box>
+                  )}
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box><Text fontSize="10px" color="app.faint">Owner</Text><Text fontSize="12px" fontWeight="600">{detailDeal.owner_name || '—'}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Close date</Text><Text fontSize="12px" fontWeight="600">{detailDeal.close_date ?? '—'}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Competitors</Text><Text fontSize="12px" fontWeight="600">{detailDeal.competitors || '—'}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Created</Text><Text fontSize="12px" fontWeight="600">{new Date(detailDeal.created_at ?? '').toLocaleDateString()}</Text></Box>
+                  </Grid>
+                  {detailDeal.notes && <Box><Text fontSize="10px" color="app.faint" mb="4px">NOTES</Text><Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailDeal.notes}</Text></Box>}
+                  <Flex gap="8px" pt="4px">
+                    <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailDeal); }}>Edit deal</Button>
+                    <Button size="sm" flex="1" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<FileTextIcon size={13} />} onClick={() => { detailModal.onClose(); generateQuote(detailDeal); }}>Generate quote</Button>
+                  </Flex>
+                </Stack>
+              );
+            })()}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }

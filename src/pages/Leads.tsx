@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
   Avatar,
+  Badge,
   Box,
   Button,
   Checkbox,
@@ -17,8 +18,15 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
+  Stack,
   Table,
   TableContainer,
   Tbody,
@@ -35,7 +43,9 @@ import {
   CheckCircleIcon,
   CopyIcon,
   DownloadIcon,
+  MailIcon,
   MoreHorizontalIcon,
+  PhoneIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
@@ -92,8 +102,10 @@ export function Leads() {
   const formDrawer = useDisclosure();
   const confirmDel = useDisclosure();
   const confirmBulk = useDisclosure();
+  const detailModal = useDisclosure();
   const [editing, setEditing] = useState<Lead | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [detailLead, setDetailLead] = useState<Lead | null>(null);
 
   const [form, setForm] = useState({
     name: '', email: '', phone: '', company: '',
@@ -263,7 +275,7 @@ export function Leads() {
                   const owner = ownerById(lead.owner_id);
                   const dup = checkDuplicate(lead);
                   return (
-                    <Tr key={lead.id} _hover={{ bg: 'app.surfaceAlt' }}>
+                    <Tr key={lead.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => { setDetailLead(lead); detailModal.onOpen(); }}>
                       <Td borderColor="app.border">
                         <Checkbox isChecked={list.selectedIds.has(lead.id)} onChange={() => list.toggleSelect(lead.id)} colorScheme="orange" />
                       </Td>
@@ -293,7 +305,7 @@ export function Leads() {
                       <Td borderColor="app.border" isNumeric fontSize="12px" fontWeight="700">${(lead.value ?? 0).toLocaleString()}</Td>
                       <Td borderColor="app.border">
                         <Menu placement="bottom-end">
-                          <MenuButton as={IconButton} aria-label="Lead actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="xs" />
+                          <MenuButton as={IconButton} aria-label="Lead actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="xs" onClick={(e) => e.stopPropagation()} />
                           <MenuList bg="app.surface" borderColor="app.border">
                             <MenuItem bg="app.surface" fontSize="12px" icon={<UserPlusIcon size={14} />} onClick={() => openEdit(lead)}>Edit lead</MenuItem>
                             <MenuItem bg="app.surface" fontSize="12px" icon={<CheckCircleIcon size={14} />} onClick={async () => {
@@ -369,6 +381,89 @@ export function Leads() {
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete lead" message="Are you sure you want to delete this lead?" confirmLabel="Delete" danger loading={mutation.loading} onConfirm={handleDelete} />
       <ConfirmDialog isOpen={confirmBulk.isOpen} onClose={confirmBulk.onClose} title="Delete selected leads" message={`Delete ${list.selectedIds.size} leads?`} confirmLabel="Delete all" danger loading={mutation.loading} onConfirm={handleBulkDelete} />
+
+      {/* Floating lead detail modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            {detailLead && (() => {
+              const p = personById(detailLead.person_id);
+              return (
+                <Flex align="center" gap="10px">
+                  <Avatar size="sm" name={p?.name ?? '?'} bg={p?.avatar_color ?? '#d8e7ff'} color="#46506a" />
+                  <Box>
+                    <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{p?.name ?? 'Unknown lead'}</Text>
+                    <Text fontSize="11px" color="app.subtle">{p?.company ?? '—'}</Text>
+                  </Box>
+                </Flex>
+              );
+            })()}
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            {detailLead && (() => {
+              const p = personById(detailLead.person_id);
+              return (
+                <Stack spacing="14px">
+                  {/* Status + source */}
+                  <Flex gap="8px" flexWrap="wrap">
+                    <StatusBadge status={detailLead.status} />
+                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle">{detailLead.source}</Badge>
+                  </Flex>
+
+                  {/* Score + value */}
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Lead score</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">{detailLead.score}/100</Text>
+                    </Box>
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint">Estimated value</Text>
+                      <Text mt="4px" fontSize="18px" fontWeight="800">${(detailLead.value ?? 0).toLocaleString()}</Text>
+                    </Box>
+                  </Grid>
+
+                  {/* AI score bar */}
+                  <Box>
+                    <Flex justify="space-between" mb="6px">
+                      <Text fontSize="11px" color="app.subtle">AI score</Text>
+                      <Text fontSize="11px" fontWeight="700">{detailLead.ai_score}/100</Text>
+                    </Flex>
+                    <Box w="full" h="8px" bg="app.surfaceAlt" borderRadius="full" overflow="hidden">
+                      <Box h="full" bg={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'} borderRadius="full" style={{ width: `${detailLead.ai_score}%` }} />
+                    </Box>
+                  </Box>
+
+                  {/* Contact info */}
+                  {p && (
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint" mb="8px">CONTACT</Text>
+                      {p.email && <Flex align="center" gap="6px" mb="4px"><Icon as={MailIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{p.email}</Text></Flex>}
+                      {p.phone && <Flex align="center" gap="6px" mb="4px"><Icon as={PhoneIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{p.phone}</Text></Flex>}
+                    </Box>
+                  )}
+
+                  {/* Details */}
+                  <Grid templateColumns="1fr 1fr" gap="10px">
+                    <Box><Text fontSize="10px" color="app.faint">Owner</Text><Text fontSize="12px" fontWeight="600">{detailLead.owner_name || '—'}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Follow-up</Text><Text fontSize="12px" fontWeight="600">{detailLead.follow_up_date ?? '—'}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Created</Text><Text fontSize="12px" fontWeight="600">{new Date(detailLead.created_at ?? '').toLocaleDateString()}</Text></Box>
+                    <Box><Text fontSize="10px" color="app.faint">Status</Text><Text fontSize="12px" fontWeight="600">{detailLead.status}</Text></Box>
+                  </Grid>
+
+                  <Flex gap="8px" pt="4px">
+                    <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailLead); }}>Edit lead</Button>
+                    {detailLead.status !== 'Qualified' && detailLead.status !== 'Won' && (
+                      <Button size="sm" flex="1" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<CheckCircleIcon size={13} />} onClick={() => { detailModal.onClose(); qualifyLead(detailLead); }}>Qualify</Button>
+                    )}
+                  </Flex>
+                </Stack>
+              );
+            })()}
+          </ModalBody>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
