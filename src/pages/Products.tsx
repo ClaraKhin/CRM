@@ -28,7 +28,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
@@ -177,7 +177,7 @@ export function Products() {
         </Grid>
       )}
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit product' : 'New product'} subtitle={editing ? 'Update product details' : 'Add a product to your catalog'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit product' : 'New product'} subtitle={editing ? 'Update product details' : 'Add a product to your catalog'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Name</FormLabel>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Growth Suite" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -208,7 +208,7 @@ export function Products() {
           <FormLabel fontSize="12px">Image URL</FormLabel>
           <Input value={form.image_url} onChange={(e) => setForm({ ...form, image_url: e.target.value })} placeholder="https://..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       {/* Floating product detail modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>

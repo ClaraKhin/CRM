@@ -18,7 +18,7 @@ import { ArrowRightIcon, PlusIcon, Trash2Icon, ZapIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -149,7 +149,7 @@ export function Automation() {
         )}
       </Card>
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit rule' : 'New rule'} subtitle={editing ? 'Update automation rule' : 'Create a new automation rule'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit rule' : 'New rule'} subtitle={editing ? 'Update automation rule' : 'Create a new automation rule'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Rule name</FormLabel>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Auto-assign new leads" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -172,7 +172,7 @@ export function Automation() {
             <Text fontSize="12px">Enable immediately</Text>
           </Flex>
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete rule" message="Are you sure you want to delete this automation rule?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>

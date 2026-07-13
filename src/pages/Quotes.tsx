@@ -34,7 +34,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -255,7 +255,7 @@ export function Quotes() {
         )}
       </Card>
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit quote' : 'New quote'} subtitle={editing ? 'Update quote details' : 'Create a quotation linked to a deal'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit quote' : 'New quote'} subtitle={editing ? 'Update quote details' : 'Create a quotation linked to a deal'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Quote number</FormLabel>
           <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -296,7 +296,7 @@ export function Quotes() {
           <FormLabel fontSize="12px">Notes</FormLabel>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Quote notes..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete quote" message="Are you sure you want to delete this quote?" confirmLabel="Delete" danger onConfirm={handleDelete} />
 

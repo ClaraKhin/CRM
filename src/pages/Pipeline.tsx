@@ -26,7 +26,7 @@ import {
 import { FileTextIcon, MailIcon, PhoneIcon, PlusIcon, TrendingUpIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -296,7 +296,7 @@ export function Pipeline() {
         </Flex>
       )}
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit deal' : 'New deal'} subtitle={editing ? 'Update deal details' : 'Create a new pipeline deal'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit deal' : 'New deal'} subtitle={editing ? 'Update deal details' : 'Create a new pipeline deal'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Deal title</FormLabel>
           <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Atlas Cloud platform" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -381,7 +381,7 @@ export function Pipeline() {
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Deal notes..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
         {editing && <Button size="sm" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" onClick={() => { handleDelete(editing.id); formDrawer.onClose(); }}>Delete deal</Button>}
-      </FormDrawer>
+      </FormModal>
 
       {/* Floating deal detail modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
