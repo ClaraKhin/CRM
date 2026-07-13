@@ -10,6 +10,8 @@ Creates a demo CRM user so the app is immediately usable without manual signup.
 This is a one-time seed. Re-running is safe (idempotent via ON CONFLICT).
 */
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
 INSERT INTO auth.users (
   instance_id,
   id,
@@ -28,7 +30,7 @@ INSERT INTO auth.users (
   'authenticated',
   'authenticated',
   'demo@1cngcrm.com',
-  crypt('Demo1234!', gen_salt('bf')),
+  extensions.crypt('Demo1234!', extensions.gen_salt('bf')),
   now(),
   now(),
   now(),
