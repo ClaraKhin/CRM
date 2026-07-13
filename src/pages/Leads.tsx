@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
   Avatar,
-  Badge,
   Box,
   Button,
   Checkbox,
@@ -28,37 +27,24 @@ import {
   Select,
   Spinner,
   Stack,
-  Table,
-  TableContainer,
-  Tbody,
-  Td,
   Text,
-  Th,
-  Thead,
-  Tr,
   useDisclosure,
   useToast } from
 '@chakra-ui/react';
 import {
   CalendarPlusIcon,
   CheckCircleIcon,
-  CopyIcon,
   DownloadIcon,
-  FlameIcon,
   MailIcon,
   MoreHorizontalIcon,
   PhoneIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
-  TrendingUpIcon,
   UserPlusIcon,
   UsersRoundIcon } from
 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Card } from '../components/ui/Card';
-import { StatusBadge } from '../components/ui/StatusBadge';
-import { ScoreBadge } from '../components/ui/ScoreBadge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormModal } from '../components/ui/FormModal';
@@ -85,13 +71,73 @@ type Lead = {
 const STATUS_OPTIONS = ['New', 'Contacted', 'Qualified', 'Proposal', 'Won', 'Lost', 'Unqualified'];
 const SOURCE_OPTIONS = ['Website', 'Facebook', 'Google Ads', 'Referral', 'Walk-in', 'Event', 'Manual'];
 const OWNERS = [
-  { id: 'o1', name: 'Renee Walker', color: '#ffdccb' },
-  { id: 'o2', name: 'Marcus Chen', color: '#d8e7ff' },
-  { id: 'o3', name: 'Priya Nair', color: '#eadbff' },
-  { id: 'o4', name: 'Diego Alvarez', color: '#c9f0e3' }
+  { id: 'o1', name: 'Renee Walker', initials: 'RW', color: '#ffdccb', textColor: '#8c5535' },
+  { id: 'o2', name: 'Marcus Chen', initials: 'MC', color: '#d8e7ff', textColor: '#2d4fa3' },
+  { id: 'o3', name: 'Priya Nair', initials: 'PN', color: '#eadbff', textColor: '#6b35a8' },
+  { id: 'o4', name: 'Diego Alvarez', initials: 'DA', color: '#c9f0e3', textColor: '#1a6b4a' }
 ];
-const sourceIcon: Record<string, string> = { Website: '🌐', Facebook: '📘', 'Google Ads': '🔍', Referral: '🤝', 'Walk-in': '🚶', Event: '📅', Manual: '✏️' };
-const statusFlow: Record<string, string> = { New: '#6c7aea', Contacted: '#4f9de0', Qualified: '#2d9c79', Proposal: '#f0a13c', Won: '#1c8a5c', Lost: '#c23c3c', Unqualified: '#6b7488' };
+
+const sourceConfig: Record<string, { icon: string; color: string; bg: string }> = {
+  Website: { icon: '🌐', color: '#3355c9', bg: '#eef2ff' },
+  Facebook: { icon: '📘', color: '#1877f2', bg: '#e8f1ff' },
+  'Google Ads': { icon: '🔍', color: '#ea4335', bg: '#fef0ef' },
+  Referral: { icon: '🤝', color: '#1c8a5c', bg: '#e8f5ee' },
+  'Walk-in': { icon: '🚶', color: '#6b7488', bg: '#f0f2f5' },
+  Event: { icon: '📅', color: '#b5760f', bg: '#fef3e0' },
+  Manual: { icon: '✏️', color: '#6b7488', bg: '#f0f2f5' }
+};
+
+const statusConfig: Record<string, { color: string; bg: string; dot: string }> = {
+  New: { color: '#3355c9', bg: '#eef2ff', dot: '#6c7aea' },
+  Contacted: { color: '#1877f2', bg: '#e8f1ff', dot: '#4f9de0' },
+  Qualified: { color: '#1c8a5c', bg: '#e8f5ee', dot: '#2d9c79' },
+  Proposal: { color: '#b5760f', bg: '#fef3e0', dot: '#f0a13c' },
+  Won: { color: '#1c8a5c', bg: '#d5f0e6', dot: '#1c8a5c' },
+  Lost: { color: '#c23c3c', bg: '#fde8e8', dot: '#c23c3c' },
+  Unqualified: { color: '#6b7488', bg: '#f0f2f5', dot: '#6b7488' }
+};
+
+function ScoreBar({ score }: { score: number }) {
+  const color = score >= 80 ? '#1c8a5c' : score >= 60 ? '#b5760f' : score >= 40 ? '#e9683f' : '#c23c3c';
+  const bgColor = score >= 80 ? '#e8f5ee' : score >= 60 ? '#fef3e0' : score >= 40 ? '#fff2ec' : '#fde8e8';
+  return (
+    <Flex align="center" gap="8px">
+      <Box w="52px" h="6px" bg={`${color}22`} borderRadius="full" overflow="hidden">
+        <Box h="full" borderRadius="full" bg={color} style={{ width: `${score}%` }} transition="width .3s ease" />
+      </Box>
+      <Box
+        minW="36px"
+        h="22px"
+        borderRadius="6px"
+        bg={bgColor}
+        display="flex"
+        alignItems="center"
+        justifyContent="center">
+        <Text fontSize="11px" fontWeight="800" color={color}>{score}</Text>
+      </Box>
+    </Flex>
+  );
+}
+
+function StatusPill({ status }: { status: string }) {
+  const cfg = statusConfig[status] ?? { color: '#6b7488', bg: '#f0f2f5', dot: '#6b7488' };
+  return (
+    <Flex align="center" gap="5px" px="9px" py="4px" bg={cfg.bg} borderRadius="full" w="fit-content">
+      <Box w="6px" h="6px" borderRadius="full" bg={cfg.dot} flexShrink={0} />
+      <Text fontSize="11px" fontWeight="600" color={cfg.color}>{status}</Text>
+    </Flex>
+  );
+}
+
+function SourceChip({ source }: { source: string }) {
+  const cfg = sourceConfig[source] ?? { icon: '📌', color: '#6b7488', bg: '#f0f2f5' };
+  return (
+    <Flex align="center" gap="5px">
+      <Text fontSize="13px" lineHeight="1">{cfg.icon}</Text>
+      <Text fontSize="12px" color="#46506a" fontWeight="500">{source}</Text>
+    </Flex>
+  );
+}
 
 export function Leads() {
   const toast = useToast();
@@ -103,26 +149,19 @@ export function Leads() {
     defaultSort: { key: 'created_at', dir: 'desc' }
   });
   const mutation = useCrudMutation<Lead>('leads', { onSuccess: list.refetch });
-  const formDrawer = useDisclosure();
+  const formModal = useDisclosure();
   const confirmDel = useDisclosure();
   const confirmBulk = useDisclosure();
   const detailModal = useDisclosure();
   const [editing, setEditing] = useState<Lead | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
-
-  const [form, setForm] = useState({
-    name: '', email: '', phone: '', company: '',
-    source: 'Website', status: 'New', owner_id: 'o1', value: 0, follow_up_date: ''
-  });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', source: 'Website', status: 'New', owner_id: 'o1', value: 0, follow_up_date: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
   useEffect(() => {
     if (!session?.user) return;
-    (async () => {
-      const { data } = await supabase.from('people').select('*').eq('user_id', session.user.id);
-      setPeople((data ?? []) as Person[]);
-    })();
+    supabase.from('people').select('*').eq('user_id', session.user.id).then(({ data }) => setPeople((data ?? []) as Person[]));
   }, [session]);
 
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
@@ -132,19 +171,15 @@ export function Leads() {
     setEditing(null);
     setForm({ name: '', email: '', phone: '', company: '', source: 'Website', status: 'New', owner_id: 'o1', value: 0, follow_up_date: '' });
     setFormErrors({});
-    formDrawer.onOpen();
+    formModal.onOpen();
   };
 
   const openEdit = (lead: Lead) => {
     const p = personById(lead.person_id);
     setEditing(lead);
-    setForm({
-      name: p?.name ?? '', email: p?.email ?? '', phone: p?.phone ?? '', company: p?.company ?? '',
-      source: lead.source, status: lead.status, owner_id: lead.owner_id, value: lead.value,
-      follow_up_date: lead.follow_up_date ?? ''
-    });
+    setForm({ name: p?.name ?? '', email: p?.email ?? '', phone: p?.phone ?? '', company: p?.company ?? '', source: lead.source, status: lead.status, owner_id: lead.owner_id, value: lead.value, follow_up_date: lead.follow_up_date ?? '' });
     setFormErrors({});
-    formDrawer.onOpen();
+    formModal.onOpen();
   };
 
   const validate = () => {
@@ -159,61 +194,39 @@ export function Leads() {
   const handleSubmit = async () => {
     if (!validate()) return;
     const owner = ownerById(form.owner_id);
-
     if (editing) {
-      if (editing.person_id) {
-        await supabase.from('people').update({
-          name: form.name, email: form.email, phone: form.phone, company: form.company
-        }).eq('id', editing.person_id);
-      }
-      const { error } = await mutation.update(editing.id, {
-        source: form.source, status: form.status, owner_id: form.owner_id, owner_name: owner.name,
-        value: Number(form.value), follow_up_date: form.follow_up_date || null
-      });
+      if (editing.person_id) await supabase.from('people').update({ name: form.name, email: form.email, phone: form.phone, company: form.company }).eq('id', editing.person_id);
+      const { error } = await mutation.update(editing.id, { source: form.source, status: form.status, owner_id: form.owner_id, owner_name: owner.name, value: Number(form.value), follow_up_date: form.follow_up_date || null });
       if (error) { toast({ title: 'Update failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
       toast({ title: 'Lead updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
-      const { data: person } = await supabase.from('people').insert({
-        user_id: session!.user.id, name: form.name, email: form.email, phone: form.phone, company: form.company,
-        avatar_color: ['#d8e7ff', '#eadbff', '#c9f0e3', '#ffe0ee', '#f9dfbe', '#e0dcff'][Math.floor(Math.random() * 6)]
-      }).select().maybeSingle();
+      const { data: person } = await supabase.from('people').insert({ user_id: session!.user.id, name: form.name, email: form.email, phone: form.phone, company: form.company, avatar_color: ['#d8e7ff', '#eadbff', '#c9f0e3', '#ffe0ee', '#f9dfbe', '#e0dcff'][Math.floor(Math.random() * 6)] }).select().maybeSingle();
       const aiScore = Math.min(100, Math.max(0, Number(form.value) > 20000 ? 85 : 60 + Math.floor(Math.random() * 20)));
-      const { error } = await mutation.insert({
-        person_id: person?.id ?? null, source: form.source, score: 50, ai_score: aiScore,
-        status: form.status, owner_id: form.owner_id, owner_name: owner.name,
-        value: Number(form.value), follow_up_date: form.follow_up_date || null
-      });
+      const { error } = await mutation.insert({ person_id: person?.id ?? null, source: form.source, score: 50, ai_score: aiScore, status: form.status, owner_id: form.owner_id, owner_name: owner.name, value: Number(form.value), follow_up_date: form.follow_up_date || null });
       if (error) { toast({ title: 'Create failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
       toast({ title: 'Lead created', status: 'success', duration: 2000, position: 'top-right' });
     }
-    formDrawer.onClose();
+    formModal.onClose();
   };
 
   const handleDelete = async () => {
     if (!deleteId) return;
     const { error } = await mutation.remove(deleteId);
-    if (error) { toast({ title: 'Delete failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
+    if (error) return;
     toast({ title: 'Lead deleted', status: 'success', duration: 2000, position: 'top-right' });
-    confirmDel.onClose();
-    setDeleteId(null);
+    confirmDel.onClose(); setDeleteId(null);
   };
 
   const handleBulkDelete = async () => {
-    const ids = Array.from(list.selectedIds);
-    const { error } = await mutation.removeMany(ids);
-    if (error) { toast({ title: 'Bulk delete failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
-    toast({ title: `${ids.length} leads deleted`, status: 'success', duration: 2000, position: 'top-right' });
-    list.clearSelection();
-    confirmBulk.onClose();
+    const { error } = await mutation.removeMany(Array.from(list.selectedIds));
+    if (error) return;
+    toast({ title: `${list.selectedIds.size} leads deleted`, status: 'success', duration: 2000, position: 'top-right' });
+    list.clearSelection(); confirmBulk.onClose();
   };
 
   const handleExport = () => {
-    const rows = list.data.map((l) => {
-      const p = personById(l.person_id);
-      return { name: p?.name ?? '', company: p?.company ?? '', email: p?.email ?? '', source: l.source, score: l.score, ai_score: l.ai_score, status: l.status, owner: l.owner_name, value: l.value, follow_up: l.follow_up_date ?? '', created: l.created_at };
-    });
-    exportToCsv('leads.csv', rows);
-    toast({ title: 'Exported to CSV', status: 'success', duration: 1800, position: 'top-right' });
+    exportToCsv('leads.csv', list.data.map((l) => { const p = personById(l.person_id); return { name: p?.name ?? '', company: p?.company ?? '', email: p?.email ?? '', source: l.source, ai_score: l.ai_score, status: l.status, owner: l.owner_name, value: l.value }; }));
+    toast({ title: 'Exported', status: 'success', duration: 1800, position: 'top-right' });
   };
 
   const qualifyLead = async (lead: Lead) => {
@@ -222,11 +235,15 @@ export function Leads() {
     list.refetch();
   };
 
-  const checkDuplicate = (lead: Lead) => {
-    const p = personById(lead.person_id);
-    if (!p) return false;
-    return people.filter((pp) => pp.email && p.email && pp.email === p.email).length > 1;
-  };
+  const COLS = [
+    { key: 'lead', label: 'LEAD', w: 'auto', minW: '200px' },
+    { key: 'source', label: 'SOURCE', w: '140px' },
+    { key: 'ai_score', label: 'AI SCORE', w: '130px' },
+    { key: 'status', label: 'STATUS', w: '140px' },
+    { key: 'owner', label: 'OWNER', w: '160px' },
+    { key: 'value', label: 'VALUE', w: '110px' },
+    { key: 'actions', label: '', w: '44px' }
+  ];
 
   return (
     <>
@@ -234,249 +251,409 @@ export function Leads() {
         title="Leads"
         subtitle="Track, score, and qualify inbound leads."
         actions={
-          <HStack spacing="6px">
-            <Button size="sm" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<DownloadIcon size={14} />} onClick={handleExport}>Export</Button>
-            <Button size="sm" borderRadius="9px" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} leftIcon={<PlusIcon size={15} />} fontSize="12px" onClick={openCreate}>New lead</Button>
+          <HStack spacing="8px">
+            <Button
+              size="sm"
+              variant="ghost"
+              color="app.subtle"
+              borderRadius="10px"
+              fontSize="13px"
+              fontWeight="500"
+              h="36px"
+              px="14px"
+              leftIcon={<DownloadIcon size={14} />}
+              _hover={{ bg: 'app.surfaceAlt' }}
+              onClick={handleExport}>
+              Export
+            </Button>
+            <Button
+              size="sm"
+              h="36px"
+              px="16px"
+              borderRadius="10px"
+              bg="#1a2035"
+              color="white"
+              fontSize="13px"
+              fontWeight="600"
+              leftIcon={<PlusIcon size={15} />}
+              _hover={{ bg: '#253050' }}
+              boxShadow="0 1px 3px rgba(0,0,0,0.2)"
+              onClick={openCreate}>
+              New lead
+            </Button>
           </HStack>
         } />
 
-      <Card>
-        <Flex px={{ base: '14px', md: '20px' }} py="14px" gap="10px" align="center" flexWrap="wrap" borderBottom="1px solid" borderColor="app.border">
-          <InputGroup maxW="280px" size="sm">
-            <InputLeftElement pointerEvents="none"><SearchIcon size={15} color="#8a93a6" /></InputLeftElement>
-            <Input placeholder="Search leads..." value={list.search} onChange={(e) => { list.setSearch(e.target.value); list.setPage(0); }} borderRadius="9px" bg="app.surfaceAlt" borderColor="app.border" fontSize="12px" />
+      {/* Table container */}
+      <Box bg="white" borderRadius="16px" border="1px solid #edf0f5" overflow="hidden" boxShadow="0 1px 4px rgba(0,0,0,0.04)">
+
+        {/* Toolbar */}
+        <Flex px="20px" py="14px" gap="10px" align="center" borderBottom="1px solid #f0f2f6">
+          <InputGroup maxW="260px" size="sm">
+            <InputLeftElement pointerEvents="none" h="36px"><SearchIcon size={15} color="#b0b8cc" /></InputLeftElement>
+            <Input
+              h="36px"
+              pl="36px"
+              placeholder="Search leads..."
+              value={list.search}
+              onChange={(e) => { list.setSearch(e.target.value); list.setPage(0); }}
+              borderRadius="10px"
+              bg="#f8f9fc"
+              border="1px solid #edf0f5"
+              fontSize="13px"
+              color="#1d273d"
+              _placeholder={{ color: '#b0b8cc' }}
+              _focus={{ borderColor: '#c5ccdc', bg: 'white', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}
+            />
           </InputGroup>
-          <Select size="sm" maxW="160px" value={list.filter.status ?? 'All'} onChange={(e) => { list.setFilter({ ...list.filter, status: e.target.value }); list.setPage(0); }} borderRadius="9px" borderColor="app.border" fontSize="12px">
+
+          <Select
+            h="36px"
+            maxW="160px"
+            value={list.filter.status ?? 'All'}
+            onChange={(e) => { list.setFilter({ ...list.filter, status: e.target.value }); list.setPage(0); }}
+            borderRadius="10px"
+            bg="#f8f9fc"
+            border="1px solid #edf0f5"
+            fontSize="13px"
+            color="#46506a"
+            size="sm"
+            _focus={{ borderColor: '#c5ccdc', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}>
             <option value="All">All statuses</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
+
           {list.selectedIds.size > 0 && (
-            <Button size="sm" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={14} />} onClick={confirmBulk.onOpen}>
-              Delete ({list.selectedIds.size})
+            <Button
+              size="sm"
+              h="36px"
+              px="14px"
+              borderRadius="10px"
+              bg="#fde8e8"
+              color="#c23c3c"
+              fontSize="13px"
+              fontWeight="600"
+              leftIcon={<Trash2Icon size={14} />}
+              _hover={{ bg: '#fbd0d0' }}
+              border="none"
+              onClick={confirmBulk.onOpen}>
+              Delete {list.selectedIds.size}
             </Button>
           )}
-          <Text ml="auto" fontSize="12px" color="app.subtle">{list.total} leads</Text>
+
+          <Text ml="auto" fontSize="13px" color="#98a1b2" fontWeight="500">
+            {list.total} {list.total === 1 ? 'lead' : 'leads'}
+          </Text>
         </Flex>
 
-        {list.loading ? (
-          <Flex py="60px" justify="center"><Spinner color="brand.500" /></Flex>
-        ) : list.data.length === 0 ? (
-          <EmptyState icon={UsersRoundIcon} title="No leads found" description="Try adjusting your search or create a new lead." action={<Button size="sm" bg="navy.600" color="white" borderRadius="9px" fontSize="12px" leftIcon={<PlusIcon size={15} />} onClick={openCreate}>New lead</Button>} />
-        ) : (
-          <TableContainer>
-            <Table size="sm" variant="simple">
-              <Thead>
-                <Tr>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint" w="36px">
-                    <Checkbox isChecked={list.selectedIds.size === list.data.length && list.data.length > 0} onChange={list.toggleSelectAll} colorScheme="orange" />
-                  </Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint">Lead</Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', md: 'table-cell' }}>Source</Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint">AI Score</Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint">Status</Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', lg: 'table-cell' }}>Owner</Th>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint" isNumeric>Value</Th>
-                  <Th borderColor="app.border" w="40px"></Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {list.data.map((lead) => {
-                  const person = personById(lead.person_id);
-                  const owner = ownerById(lead.owner_id);
-                  const dup = checkDuplicate(lead);
-                  return (
-                    <Tr key={lead.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => { setDetailLead(lead); detailModal.onOpen(); }}>
-                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
-                        <Checkbox isChecked={list.selectedIds.has(lead.id)} onChange={() => list.toggleSelect(lead.id)} colorScheme="orange" />
-                      </Td>
-                      <Td borderColor="app.border">
-                        <Flex align="center" gap="10px">
-                          <Avatar size="sm" name={person?.name ?? '?'} bg={person?.avatar_color ?? '#d8e7ff'} color="#46506a" fontSize="10px" />
-                          <Box>
-                            <Flex align="center" gap="5px">
-                              <Text fontSize="12px" fontWeight="700">{person?.name ?? 'Unknown'}</Text>
-                              {dup && <Icon as={CopyIcon} size={12} color="#b5760f" />}
-                            </Flex>
-                            <Text fontSize="10px" color="app.subtle">{person?.company ?? ''}</Text>
-                          </Box>
-                        </Flex>
-                      </Td>
-                      <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }}>
-                        <Flex align="center" gap="6px">
-                          <Text fontSize="12px">{sourceIcon[lead.source] ?? '📌'}</Text>
-                          <Text fontSize="11px" color="app.subtle">{lead.source}</Text>
-                        </Flex>
-                      </Td>
-                      <Td borderColor="app.border">
-                        <ScoreBadge score={lead.ai_score} />
-                      </Td>
-                      <Td borderColor="app.border">
-                        <Flex align="center" gap="6px">
-                          <Box w="6px" h="6px" borderRadius="full" bg={statusFlow[lead.status] ?? '#6b7488'} flexShrink={0} />
-                          <StatusBadge status={lead.status} />
-                        </Flex>
-                      </Td>
-                      <Td borderColor="app.border" display={{ base: 'none', lg: 'table-cell' }}>
-                        <HStack spacing="7px">
-                          <Avatar size="2xs" name={owner.name} bg={owner.color} color="#46506a" fontSize="8px" />
-                          <Text fontSize="11px">{lead.owner_name}</Text>
-                        </HStack>
-                      </Td>
-                      <Td borderColor="app.border" isNumeric fontSize="12px" fontWeight="700">${(lead.value ?? 0).toLocaleString()}</Td>
-                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
-                        <Menu placement="bottom-end">
-                          <MenuButton as={IconButton} aria-label="Lead actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="xs" />
-                          <MenuList bg="app.surface" borderColor="app.border">
-                            <MenuItem bg="app.surface" fontSize="12px" icon={<UserPlusIcon size={14} />} onClick={() => openEdit(lead)}>Edit lead</MenuItem>
-                            <MenuItem bg="app.surface" fontSize="12px" icon={<CheckCircleIcon size={14} />} onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
-                            <MenuItem bg="app.surface" fontSize="12px" icon={<CalendarPlusIcon size={14} />} onClick={async () => {
-                              const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
-                              await mutation.update(lead.id, { follow_up_date: tomorrow.toISOString().split('T')[0] });
-                              toast({ title: 'Follow-up scheduled', status: 'success', duration: 1800, position: 'top-right' });
-                            }}>Schedule follow-up</MenuItem>
-                            <MenuItem bg="app.surface" fontSize="12px" color="#c23c3c" icon={<Trash2Icon size={14} />} onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
-                          </MenuList>
-                        </Menu>
-                      </Td>
-                    </Tr>
-                  );
-                })}
-              </Tbody>
-            </Table>
-            <Pagination page={list.page} pageSize={list.pageSize} total={list.total} onPageChange={list.setPage} />
-          </TableContainer>
+        {/* Column headers */}
+        {!list.loading && list.data.length > 0 && (
+          <Flex px="20px" py="10px" bg="#fafbfd" borderBottom="1px solid #f0f2f6" gap="0">
+            <Box w="40px" flexShrink={0} display="flex" alignItems="center">
+              <Checkbox
+                isChecked={list.selectedIds.size === list.data.length && list.data.length > 0}
+                onChange={list.toggleSelectAll}
+                size="sm"
+                sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: '#d5dae5', w: '16px', h: '16px', _checked: { bg: '#1a2035', borderColor: '#1a2035' } } }}
+              />
+            </Box>
+            {COLS.map((col) => (
+              <Box key={col.key} w={col.key === 'lead' ? 'auto' : col.w} flex={col.key === 'lead' ? '1' : undefined} minW={col.key === 'lead' ? col.minW : undefined} flexShrink={col.key === 'lead' ? 1 : 0}>
+                <Text fontSize="11px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">{col.label}</Text>
+              </Box>
+            ))}
+          </Flex>
         )}
-      </Card>
 
-      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+        {list.loading ? (
+          <Flex py="72px" justify="center"><Spinner size="md" color="#1a2035" thickness="2px" /></Flex>
+        ) : list.data.length === 0 ? (
+          <EmptyState icon={UsersRoundIcon} title="No leads found" description="Try adjusting your search or create a new lead." action={<Button size="sm" bg="#1a2035" color="white" borderRadius="10px" fontSize="13px" leftIcon={<PlusIcon size={15} />} onClick={openCreate}>New lead</Button>} />
+        ) : (
+          <Box>
+            {list.data.map((lead, idx) => {
+              const person = personById(lead.person_id);
+              const owner = ownerById(lead.owner_id);
+              const isLast = idx === list.data.length - 1;
+              return (
+                <Flex
+                  key={lead.id}
+                  px="20px"
+                  py="0"
+                  align="center"
+                  borderBottom={isLast ? 'none' : '1px solid #f5f6fa'}
+                  _hover={{ bg: '#fafbfd' }}
+                  cursor="pointer"
+                  transition="background .12s ease"
+                  onClick={() => { setDetailLead(lead); detailModal.onOpen(); }}
+                  h="62px"
+                  gap="0">
+                  {/* Checkbox */}
+                  <Box w="40px" flexShrink={0} onClick={(e) => e.stopPropagation()}>
+                    <Checkbox
+                      isChecked={list.selectedIds.has(lead.id)}
+                      onChange={() => list.toggleSelect(lead.id)}
+                      size="sm"
+                      sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: '#d5dae5', w: '16px', h: '16px', _checked: { bg: '#1a2035', borderColor: '#1a2035' } } }}
+                    />
+                  </Box>
+
+                  {/* Lead info */}
+                  <Box flex="1" minW="200px" overflow="hidden">
+                    <Flex align="center" gap="12px">
+                      <Avatar
+                        size="sm"
+                        name={person?.name ?? '?'}
+                        bg={person?.avatar_color ?? '#d8e7ff'}
+                        color="#46506a"
+                        fontSize="11px"
+                        fontWeight="700"
+                        w="34px"
+                        h="34px"
+                        flexShrink={0}
+                      />
+                      <Box overflow="hidden">
+                        <Text fontSize="13px" fontWeight="600" color="#1d273d" noOfLines={1}>{person?.name ?? 'Unknown'}</Text>
+                        <Text fontSize="11px" color="#98a1b2" fontWeight="400" noOfLines={1}>{person?.company ?? '—'}</Text>
+                      </Box>
+                    </Flex>
+                  </Box>
+
+                  {/* Source */}
+                  <Box w="140px" flexShrink={0} display={{ base: 'none', md: 'block' }}>
+                    <SourceChip source={lead.source} />
+                  </Box>
+
+                  {/* AI Score */}
+                  <Box w="130px" flexShrink={0}>
+                    <ScoreBar score={lead.ai_score} />
+                  </Box>
+
+                  {/* Status */}
+                  <Box w="140px" flexShrink={0}>
+                    <StatusPill status={lead.status} />
+                  </Box>
+
+                  {/* Owner */}
+                  <Box w="160px" flexShrink={0} display={{ base: 'none', lg: 'block' }}>
+                    <Flex align="center" gap="8px">
+                      <Avatar size="xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="9px" fontWeight="800" w="26px" h="26px" />
+                      <Text fontSize="12px" color="#46506a" fontWeight="500">{owner.name}</Text>
+                    </Flex>
+                  </Box>
+
+                  {/* Value */}
+                  <Box w="110px" flexShrink={0}>
+                    <Text fontSize="13px" fontWeight="700" color="#1d273d" textAlign="right" pr="8px">
+                      ${(lead.value ?? 0).toLocaleString()}
+                    </Text>
+                  </Box>
+
+                  {/* Actions */}
+                  <Box w="44px" flexShrink={0} onClick={(e) => e.stopPropagation()}>
+                    <Menu placement="bottom-end">
+                      <MenuButton
+                        as={IconButton}
+                        aria-label="Lead actions"
+                        icon={<MoreHorizontalIcon size={16} />}
+                        variant="ghost"
+                        size="sm"
+                        color="#b0b8cc"
+                        borderRadius="8px"
+                        _hover={{ bg: '#f0f2f6', color: '#1d273d' }}
+                      />
+                      <MenuList
+                        bg="white"
+                        border="1px solid #edf0f5"
+                        borderRadius="12px"
+                        boxShadow="0 8px 24px rgba(0,0,0,0.10)"
+                        py="6px"
+                        minW="160px">
+                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<UserPlusIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => openEdit(lead)}>Edit lead</MenuItem>
+                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<CheckCircleIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
+                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<CalendarPlusIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={async () => { const d = new Date(); d.setDate(d.getDate() + 1); await mutation.update(lead.id, { follow_up_date: d.toISOString().split('T')[0] }); toast({ title: 'Follow-up scheduled', status: 'success', duration: 1800, position: 'top-right' }); }}>Schedule follow-up</MenuItem>
+                        <Box h="1px" bg="#f0f2f6" mx="10px" my="4px" />
+                        <MenuItem bg="white" fontSize="13px" color="#c23c3c" icon={<Trash2Icon size={14} />} _hover={{ bg: '#fde8e8' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
+                      </MenuList>
+                    </Menu>
+                  </Box>
+                </Flex>
+              );
+            })}
+
+            {/* Pagination */}
+            <Box px="20px" py="12px" borderTop="1px solid #f0f2f6">
+              <Flex align="center" justify="space-between">
+                <Text fontSize="13px" color="#98a1b2">
+                  {list.page * list.pageSize + 1}–{Math.min((list.page + 1) * list.pageSize, list.total)} of {list.total}
+                </Text>
+                <Flex align="center" gap="6px">
+                  <Button
+                    size="sm"
+                    h="32px"
+                    w="32px"
+                    p="0"
+                    borderRadius="8px"
+                    variant="ghost"
+                    color="#6b7488"
+                    fontSize="16px"
+                    _hover={{ bg: '#f0f2f6' }}
+                    isDisabled={list.page === 0}
+                    onClick={() => list.setPage(list.page - 1)}>‹</Button>
+                  <Text fontSize="13px" color="#46506a" fontWeight="500" px="8px">{list.page + 1} / {Math.max(1, Math.ceil(list.total / list.pageSize))}</Text>
+                  <Button
+                    size="sm"
+                    h="32px"
+                    w="32px"
+                    p="0"
+                    borderRadius="8px"
+                    variant="ghost"
+                    color="#6b7488"
+                    fontSize="16px"
+                    _hover={{ bg: '#f0f2f6' }}
+                    isDisabled={(list.page + 1) * list.pageSize >= list.total}
+                    onClick={() => list.setPage(list.page + 1)}>›</Button>
+                </Flex>
+              </Flex>
+            </Box>
+          </Box>
+        )}
+      </Box>
+
+      {/* Create/Edit Modal */}
+      <FormModal isOpen={formModal.isOpen} onClose={formModal.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl isInvalid={!!formErrors.name}>
-          <FormLabel fontSize="12px">Contact name</FormLabel>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Contact name</FormLabel>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
           {formErrors.name && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.name}</Text>}
         </FormControl>
         <FormControl isInvalid={!!formErrors.company}>
-          <FormLabel fontSize="12px">Company</FormLabel>
-          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Company</FormLabel>
+          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
           {formErrors.company && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.company}</Text>}
         </FormControl>
-        <FormControl isInvalid={!!formErrors.email}>
-          <FormLabel fontSize="12px">Email</FormLabel>
-          <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
-          {formErrors.email && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.email}</Text>}
-        </FormControl>
+        <Grid templateColumns="1fr 1fr" gap="10px">
+          <FormControl isInvalid={!!formErrors.email}>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Email</FormLabel>
+            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            {formErrors.email && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.email}</Text>}
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Phone</FormLabel>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          </FormControl>
+        </Grid>
+        <Grid templateColumns="1fr 1fr" gap="10px">
+          <FormControl>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Source</FormLabel>
+            <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Status</FormLabel>
+            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
+          </FormControl>
+        </Grid>
+        <Grid templateColumns="1fr 1fr" gap="10px">
+          <FormControl>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Owner</FormLabel>
+            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Deal value ($)</FormLabel>
+            <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          </FormControl>
+        </Grid>
         <FormControl>
-          <FormLabel fontSize="12px">Phone</FormLabel>
-          <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Source</FormLabel>
-          <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
-            {SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Status</FormLabel>
-          <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
-            {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
-          </Select>
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Owner</FormLabel>
-          <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
-            {OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
-          </Select>
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Deal value ($)</FormLabel>
-          <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
-        </FormControl>
-        <FormControl>
-          <FormLabel fontSize="12px">Follow-up date</FormLabel>
-          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Follow-up date</FormLabel>
+          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
         </FormControl>
       </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete lead" message="Are you sure you want to delete this lead?" confirmLabel="Delete" danger loading={mutation.loading} onConfirm={handleDelete} />
       <ConfirmDialog isOpen={confirmBulk.isOpen} onClose={confirmBulk.onClose} title="Delete selected leads" message={`Delete ${list.selectedIds.size} leads?`} confirmLabel="Delete all" danger loading={mutation.loading} onConfirm={handleBulkDelete} />
 
-      {/* Floating lead detail modal */}
+      {/* Detail Modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
-        <ModalOverlay backdropFilter="blur(4px)" />
-        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
-          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
-            {detailLead && (() => {
-              const p = personById(detailLead.person_id);
-              return (
-                <Flex align="center" gap="10px">
-                  <Avatar size="sm" name={p?.name ?? '?'} bg={p?.avatar_color ?? '#d8e7ff'} color="#46506a" />
-                  <Box>
-                    <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{p?.name ?? 'Unknown lead'}</Text>
-                    <Text fontSize="11px" color="app.subtle">{p?.company ?? '—'}</Text>
-                  </Box>
-                </Flex>
-              );
-            })()}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody py="18px">
-            {detailLead && (() => {
-              const p = personById(detailLead.person_id);
-              return (
-                <Stack spacing="14px">
-                  <Flex gap="8px" flexWrap="wrap">
-                    <Flex align="center" gap="6px">
-                      <Box w="6px" h="6px" borderRadius="full" bg={statusFlow[detailLead.status] ?? '#6b7488'} />
-                      <StatusBadge status={detailLead.status} />
+        <ModalOverlay backdropFilter="blur(6px)" bg="rgba(15,21,35,0.4)" />
+        <ModalContent bg="white" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)">
+          {detailLead && (() => {
+            const p = personById(detailLead.person_id);
+            const owner = ownerById(detailLead.owner_id);
+            const cfg = statusConfig[detailLead.status] ?? { color: '#6b7488', bg: '#f0f2f5', dot: '#6b7488' };
+            return (
+              <>
+                <ModalHeader p="0">
+                  <Box px="24px" pt="24px" pb="20px" borderBottom="1px solid #f0f2f6">
+                    <Flex align="center" gap="14px">
+                      <Avatar size="md" name={p?.name ?? '?'} bg={p?.avatar_color ?? '#d8e7ff'} color="#46506a" fontSize="14px" fontWeight="800" w="48px" h="48px" />
+                      <Box flex="1">
+                        <Text fontSize="17px" fontWeight="800" color="#1d273d" lineHeight="1.2">{p?.name ?? 'Unknown lead'}</Text>
+                        <Text fontSize="12px" color="#98a1b2" mt="2px">{p?.company ?? '—'}</Text>
+                      </Box>
+                      <Flex align="center" gap="5px" px="10px" py="5px" bg={cfg.bg} borderRadius="full">
+                        <Box w="6px" h="6px" borderRadius="full" bg={cfg.dot} />
+                        <Text fontSize="11px" fontWeight="600" color={cfg.color}>{detailLead.status}</Text>
+                      </Flex>
                     </Flex>
-                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle">{sourceIcon[detailLead.source] ?? '📌'} {detailLead.source}</Badge>
-                  </Flex>
-
-                  <Grid templateColumns="1fr 1fr" gap="10px">
-                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                      <Text fontSize="10px" color="app.faint">Lead score</Text>
-                      <Text mt="4px" fontSize="18px" fontWeight="800">{detailLead.score}/100</Text>
-                    </Box>
-                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                      <Text fontSize="10px" color="app.faint">Estimated value</Text>
-                      <Text mt="4px" fontSize="18px" fontWeight="800">${(detailLead.value ?? 0).toLocaleString()}</Text>
-                    </Box>
-                  </Grid>
-
-                  <Box>
-                    <Flex justify="space-between" mb="6px">
-                      <Text fontSize="11px" color="app.subtle">AI score</Text>
-                      <Text fontSize="11px" fontWeight="700">{detailLead.ai_score}/100</Text>
-                    </Flex>
-                    <Box w="full" h="8px" bg="app.surfaceAlt" borderRadius="full" overflow="hidden">
-                      <Box h="full" bg={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'} borderRadius="full" style={{ width: `${detailLead.ai_score}%` }} />
-                    </Box>
                   </Box>
+                </ModalHeader>
+                <ModalCloseButton top="20px" right="20px" color="#98a1b2" _hover={{ bg: '#f0f2f6', color: '#1d273d' }} borderRadius="8px" />
+                <ModalBody px="24px" py="20px">
+                  <Stack spacing="16px">
+                    {/* Score section */}
+                    <Grid templateColumns="1fr 1fr" gap="12px">
+                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
+                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">LEAD SCORE</Text>
+                        <Text mt="6px" fontSize="22px" fontWeight="900" color="#1d273d">{detailLead.score}<Text as="span" fontSize="13px" color="#98a1b2" fontWeight="500">/100</Text></Text>
+                      </Box>
+                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
+                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">VALUE</Text>
+                        <Text mt="6px" fontSize="22px" fontWeight="900" color="#1d273d">${(detailLead.value ?? 0).toLocaleString()}</Text>
+                      </Box>
+                    </Grid>
 
-                  {p && (
-                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                      <Text fontSize="10px" color="app.faint" mb="8px">CONTACT</Text>
-                      {p.email && <Flex align="center" gap="6px" mb="4px"><Icon as={MailIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{p.email}</Text></Flex>}
-                      {p.phone && <Flex align="center" gap="6px" mb="4px"><Icon as={PhoneIcon} boxSize="11px" color="app.faint" /><Text fontSize="11px" color="app.subtle">{p.phone}</Text></Flex>}
+                    {/* AI Score bar */}
+                    <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
+                      <Flex justify="space-between" align="center" mb="8px">
+                        <Text fontSize="11px" fontWeight="700" color="#46506a">AI CONFIDENCE SCORE</Text>
+                        <Text fontSize="13px" fontWeight="800" color={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'}>{detailLead.ai_score}%</Text>
+                      </Flex>
+                      <Box w="full" h="8px" bg="#edf0f5" borderRadius="full" overflow="hidden">
+                        <Box h="full" bg={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'} borderRadius="full" style={{ width: `${detailLead.ai_score}%` }} transition="width .4s ease" />
+                      </Box>
                     </Box>
-                  )}
 
-                  <Grid templateColumns="1fr 1fr" gap="10px">
-                    <Box><Text fontSize="10px" color="app.faint">Owner</Text><Text fontSize="12px" fontWeight="600">{detailLead.owner_name || '—'}</Text></Box>
-                    <Box><Text fontSize="10px" color="app.faint">Follow-up</Text><Text fontSize="12px" fontWeight="600">{detailLead.follow_up_date ?? '—'}</Text></Box>
-                    <Box><Text fontSize="10px" color="app.faint">Created</Text><Text fontSize="12px" fontWeight="600">{new Date(detailLead.created_at ?? '').toLocaleDateString()}</Text></Box>
-                    <Box><Text fontSize="10px" color="app.faint">Status</Text><Text fontSize="12px" fontWeight="600">{detailLead.status}</Text></Box>
-                  </Grid>
-
-                  <Flex gap="8px" pt="4px">
-                    <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailLead); }}>Edit lead</Button>
-                    {detailLead.status !== 'Qualified' && detailLead.status !== 'Won' && (
-                      <Button size="sm" flex="1" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<CheckCircleIcon size={13} />} onClick={() => { detailModal.onClose(); qualifyLead(detailLead); }}>Qualify</Button>
+                    {/* Source + contact */}
+                    {p && (
+                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
+                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em" mb="10px">CONTACT INFO</Text>
+                        <Stack spacing="6px">
+                          {p.email && <Flex align="center" gap="8px"><Icon as={MailIcon} boxSize="13px" color="#98a1b2" /><Text fontSize="12px" color="#46506a">{p.email}</Text></Flex>}
+                          {p.phone && <Flex align="center" gap="8px"><Icon as={PhoneIcon} boxSize="13px" color="#98a1b2" /><Text fontSize="12px" color="#46506a">{p.phone}</Text></Flex>}
+                        </Stack>
+                      </Box>
                     )}
-                  </Flex>
-                </Stack>
-              );
-            })()}
-          </ModalBody>
+
+                    <Grid templateColumns="1fr 1fr" gap="10px">
+                      {[['OWNER', detailLead.owner_name || '—'], ['SOURCE', detailLead.source], ['FOLLOW-UP', detailLead.follow_up_date ?? '—'], ['CREATED', new Date(detailLead.created_at ?? '').toLocaleDateString()]].map(([label, val]) => (
+                        <Box key={label}>
+                          <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">{label}</Text>
+                          <Text fontSize="13px" fontWeight="600" color="#1d273d" mt="2px">{val}</Text>
+                        </Box>
+                      ))}
+                    </Grid>
+
+                    <Flex gap="8px" pt="4px">
+                      <Button flex="1" h="38px" borderRadius="10px" bg="#1a2035" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#253050' }} onClick={() => { detailModal.onClose(); openEdit(detailLead); }}>Edit lead</Button>
+                      {detailLead.status !== 'Qualified' && detailLead.status !== 'Won' && (
+                        <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="#edf0f5" color="#1d273d" fontSize="13px" fontWeight="600" leftIcon={<CheckCircleIcon size={14} />} _hover={{ bg: '#f8f9fc' }} onClick={() => { detailModal.onClose(); qualifyLead(detailLead); }}>Qualify</Button>
+                      )}
+                    </Flex>
+                  </Stack>
+                </ModalBody>
+              </>
+            );
+          })()}
         </ModalContent>
       </Modal>
     </>
