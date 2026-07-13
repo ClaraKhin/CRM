@@ -45,7 +45,7 @@ import {
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase, ROLE_LABELS, type UserRole } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -442,7 +442,7 @@ export function Settings() {
         </TabPanels>
       </Tabs>
 
-      <FormDrawer isOpen={syncDrawer.isOpen} onClose={syncDrawer.onClose} title={editingSyncId ? 'Edit sync connection' : 'New sync connection'} subtitle="Configure an external API sync" loading={savingSync} onSubmit={handleSaveSync} submitLabel={editingSyncId ? 'Update' : 'Create'}>
+      <FormModal isOpen={syncDrawer.isOpen} onClose={syncDrawer.onClose} title={editingSyncId ? 'Edit sync connection' : 'New sync connection'} subtitle="Configure an external API sync" loading={savingSync} onSubmit={handleSaveSync} submitLabel={editingSyncId ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Connection name</FormLabel>
           <Input value={syncForm.name} onChange={(e) => setSyncForm({ ...syncForm, name: e.target.value })} placeholder="Google Calendar Sync" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -469,7 +469,7 @@ export function Settings() {
             <Input type="password" value={syncForm.api_key} onChange={(e) => setSyncForm({ ...syncForm, api_key: e.target.value })} placeholder="Enter your API key" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
           </FormControl>
         )}
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmSyncDel.isOpen} onClose={confirmSyncDel.onClose} title="Delete sync connection" message="Are you sure you want to delete this sync connection?" confirmLabel="Delete" danger onConfirm={handleDeleteSync} />
     </>

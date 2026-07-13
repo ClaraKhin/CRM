@@ -61,7 +61,7 @@ import { StatusBadge } from '../components/ui/StatusBadge';
 import { ScoreBadge } from '../components/ui/ScoreBadge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { Pagination } from '../components/ui/Pagination';
 import { useCrudList, useCrudMutation, exportToCsv } from '../lib/crud';
 import { supabase } from '../lib/supabase';
@@ -348,7 +348,7 @@ export function Leads() {
         )}
       </Card>
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl isInvalid={!!formErrors.name}>
           <FormLabel fontSize="12px">Contact name</FormLabel>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -394,7 +394,7 @@ export function Leads() {
           <FormLabel fontSize="12px">Follow-up date</FormLabel>
           <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete lead" message="Are you sure you want to delete this lead?" confirmLabel="Delete" danger loading={mutation.loading} onConfirm={handleDelete} />
       <ConfirmDialog isOpen={confirmBulk.isOpen} onClose={confirmBulk.onClose} title="Delete selected leads" message={`Delete ${list.selectedIds.size} leads?`} confirmLabel="Delete all" danger loading={mutation.loading} onConfirm={handleBulkDelete} />

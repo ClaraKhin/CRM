@@ -34,7 +34,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -255,7 +255,7 @@ export function Invoices() {
         )}
       </Card>
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit invoice' : 'New invoice'} subtitle={editing ? 'Update invoice details' : 'Generate a new invoice'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit invoice' : 'New invoice'} subtitle={editing ? 'Update invoice details' : 'Generate a new invoice'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Invoice number</FormLabel>
           <Input value={form.number} onChange={(e) => setForm({ ...form, number: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -298,7 +298,7 @@ export function Invoices() {
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete invoice" message="Are you sure you want to delete this invoice?" confirmLabel="Delete" danger onConfirm={handleDelete} />
 

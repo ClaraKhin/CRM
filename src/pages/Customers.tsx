@@ -51,7 +51,7 @@ import { Card } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { Pagination } from '../components/ui/Pagination';
 import { useCrudList, useCrudMutation, exportToCsv } from '../lib/crud';
 import { supabase } from '../lib/supabase';
@@ -304,7 +304,7 @@ export function Customers() {
       </Card>
 
       {/* Create/Edit Form */}
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit customer' : 'New customer'} subtitle={editing ? 'Update customer details' : 'Add a new customer to your CRM'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit customer' : 'New customer'} subtitle={editing ? 'Update customer details' : 'Add a new customer to your CRM'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl isInvalid={!!formErrors.name}>
           <FormLabel fontSize="12px">Contact name</FormLabel>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -350,7 +350,7 @@ export function Customers() {
           <FormLabel fontSize="12px">Notes</FormLabel>
           <Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Internal notes..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       {/* Detail Modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>

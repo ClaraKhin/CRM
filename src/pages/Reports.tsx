@@ -19,7 +19,7 @@ import { DownloadIcon, FileSpreadsheetIcon, FileTextIcon, PlusIcon, SaveIcon, Tr
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { BarChart, DonutChart, FunnelChart, LineChart } from '../components/reports/Charts';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -51,7 +51,7 @@ export function Reports() {
   const confirmDel = useDisclosure();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', type: 'Revenue', date_range: 'This month' });
+  const [form, setForm] = useState({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_filter: 'All', min_value: '' });
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -112,7 +112,7 @@ export function Reports() {
     notify('Exported to PDF');
   };
 
-  const openCreate = () => { setForm({ name: '', type: 'Revenue', date_range: 'This month' }); formDrawer.onOpen(); };
+  const openCreate = () => { setForm({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_filter: 'All', min_value: '' }); formDrawer.onOpen(); };
 
   const handleSaveReport = async () => {
     if (!form.name.trim()) { toast({ title: 'Report name is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
@@ -120,7 +120,7 @@ export function Reports() {
     const { error } = await supabase.from('api_sync_connections').insert({
       user_id: session!.user.id, name: form.name, provider: 'report_store',
       endpoint_url: '', auth_type: 'none', status: 'active',
-      config: { type: form.type, date_range: form.date_range }
+      config: { type: form.type, date_range: form.date_range, format: form.format, owner_filter: form.owner_filter, min_value: form.min_value }
     });
     if (!error) { toast({ title: 'Report saved', status: 'success', duration: 2000, position: 'top-right' }); formDrawer.onClose(); load(); }
     setSaving(false);
@@ -240,7 +240,7 @@ export function Reports() {
         </Grid>
       )}
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title="Save report" subtitle="Save this report configuration for quick access" loading={saving} onSubmit={handleSaveReport} submitLabel="Save">
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title="Save report" subtitle="Save this report configuration for quick access" loading={saving} onSubmit={handleSaveReport} submitLabel="Save">
         <FormControl>
           <FormLabel fontSize="12px">Report name</FormLabel>
           <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Q3 Revenue Analysis" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -257,7 +257,23 @@ export function Reports() {
             <option>This week</option><option>This month</option><option>This quarter</option><option>This year</option><option>Last month</option><option>Last quarter</option>
           </Select>
         </FormControl>
-      </FormDrawer>
+        <FormControl>
+          <FormLabel fontSize="12px">Export format</FormLabel>
+          <Select value={form.format} onChange={(e) => setForm({ ...form, format: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
+            <option>PDF</option><option>Excel</option><option>CSV</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel fontSize="12px">Owner filter</FormLabel>
+          <Select value={form.owner_filter} onChange={(e) => setForm({ ...form, owner_filter: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
+            <option>All</option><option>Renee Walker</option><option>Marcus Chen</option><option>Priya Nair</option><option>Diego Alvarez</option>
+          </Select>
+        </FormControl>
+        <FormControl>
+          <FormLabel fontSize="12px">Minimum deal value ($)</FormLabel>
+          <Input type="number" value={form.min_value} onChange={(e) => setForm({ ...form, min_value: e.target.value })} placeholder="0" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+        </FormControl>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete saved report" message="Are you sure you want to delete this saved report?" confirmLabel="Delete" danger onConfirm={handleDeleteReport} />
     </>

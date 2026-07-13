@@ -30,7 +30,7 @@ import {
 import { CalendarIcon, ClockIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
-import { FormDrawer } from '../components/ui/FormDrawer';
+import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -332,7 +332,7 @@ export function Calendar() {
         )}
       </Card>
 
-      <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit event' : 'New event'} subtitle={editing ? 'Update event details' : 'Schedule a new event'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
+      <FormModal isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit event' : 'New event'} subtitle={editing ? 'Update event details' : 'Schedule a new event'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Title</FormLabel>
           <Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Sakura demo" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -361,7 +361,7 @@ export function Calendar() {
           <FormLabel fontSize="12px">Description</FormLabel>
           <Input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Event details..." size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
         </FormControl>
-      </FormDrawer>
+      </FormModal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete event" message="Are you sure you want to delete this event?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>
