@@ -15,6 +15,11 @@ import {
   ModalContent,
   ModalHeader,
   ModalOverlay,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   Spinner,
   Stack,
@@ -55,10 +60,8 @@ export function Calendar() {
   const [view, setView] = useState<'Month' | 'Week' | 'Day'>('Month');
   const [currentDate, setCurrentDate] = useState(new Date());
   const formDrawer = useDisclosure();
-  const detailModal = useDisclosure();
   const confirmDel = useDisclosure();
   const [editing, setEditing] = useState<Event | null>(null);
-  const [detailEvent, setDetailEvent] = useState<Event | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [dragEventId, setDragEventId] = useState<string | null>(null);
@@ -103,11 +106,6 @@ export function Calendar() {
     formDrawer.onOpen();
   };
 
-  const openDetail = (event: Event) => {
-    setDetailEvent(event);
-    detailModal.onOpen();
-  };
-
   const handleSubmit = async () => {
     if (!form.title.trim()) { toast({ title: 'Title is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
     if (!form.event_date) { toast({ title: 'Date is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
@@ -136,10 +134,8 @@ export function Calendar() {
     if (!error) { toast({ title: 'Event deleted', status: 'success', duration: 1800, position: 'top-right' }); load(); }
     confirmDel.onClose();
     setDeleteId(null);
-    detailModal.onClose();
   };
 
-  // Drag and drop: move event to a new date
   const onEventDrop = async (targetDay: number) => {
     if (!dragEventId) return;
     const newDate = formatDate(targetDay);
@@ -152,6 +148,27 @@ export function Calendar() {
 
   const cells = Array.from({ length: offset + daysInMonth }, (_, i) => i < offset ? null : i - offset + 1);
   const monthName = currentDate.toLocaleString('en-US', { month: 'long', year: 'numeric' });
+
+  // Hover popup content for an event
+  const EventPopup = ({ event }: { event: Event }) => (
+    <Stack spacing="8px">
+      <Flex align="center" gap="6px">
+        <Box w="6px" h="6px" borderRadius="full" bg={typeColor[event.type] ?? '#6b7488'} />
+        <Text fontSize="12px" fontWeight="700">{event.title}</Text>
+      </Flex>
+      <Flex gap="6px" flexWrap="wrap">
+        <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg={`${typeColor[event.type]}1a`} color={typeColor[event.type]} textTransform="capitalize">{event.type}</Badge>
+        {event.sync && <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg="#e8f0ff" color="#3355c9" textTransform="capitalize">{event.sync}</Badge>}
+      </Flex>
+      <Flex align="center" gap="6px"><CalendarIcon size={12} color="#8a93a6" /><Text fontSize="11px" color="app.subtle">{new Date(event.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text></Flex>
+      <Flex align="center" gap="6px"><ClockIcon size={12} color="#8a93a6" /><Text fontSize="11px" color="app.subtle">{event.time}</Text></Flex>
+      {event.description && <Text fontSize="11px" color="app.subtle" lineHeight="1.4">{event.description}</Text>}
+      <Flex gap="6px" mt="4px">
+        <Button size="xs" bg="navy.600" color="white" borderRadius="7px" fontSize="10px" onClick={() => openEdit(event)}>Edit</Button>
+        <Button size="xs" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="7px" fontSize="10px" onClick={() => { setDeleteId(event.id); confirmDel.onOpen(); }}>Delete</Button>
+      </Flex>
+    </Stack>
+  );
 
   return (
     <>
@@ -209,24 +226,33 @@ export function Calendar() {
                       <>
                         <Text fontSize="11px" fontWeight={isToday(day) ? '800' : '600'} color={isToday(day) ? '#e9683f' : 'app.subtle'} mb="4px">{day}</Text>
                         {dayEvents.map((event) => (
-                          <Box
-                            key={event.id}
-                            draggable
-                            onDragStart={() => setDragEventId(event.id)}
-                            onClick={(e) => { e.stopPropagation(); openDetail(event); }}
-                            mb="3px"
-                            px="5px"
-                            py="3px"
-                            borderRadius="6px"
-                            bg={`${typeColor[event.type]}1a`}
-                            borderLeft="2px solid"
-                            borderColor={typeColor[event.type]}
-                            cursor="grab"
-                            _active={{ cursor: 'grabbing' }}
-                            transition="transform .1s ease"
-                            _hover={{ transform: 'translateX(2px)' }}>
-                            <Text fontSize="9px" fontWeight="700" noOfLines={1} color={typeColor[event.type]}>{event.time} {event.title}</Text>
-                          </Box>
+                          <Popover key={event.id} trigger="hover" placement="top" gutter={8}>
+                            <PopoverTrigger>
+                              <Box
+                                draggable
+                                onDragStart={() => setDragEventId(event.id)}
+                                mb="3px"
+                                px="5px"
+                                py="3px"
+                                borderRadius="6px"
+                                bg={`${typeColor[event.type]}1a`}
+                                borderLeft="2px solid"
+                                borderColor={typeColor[event.type]}
+                                cursor="grab"
+                                _active={{ cursor: 'grabbing' }}
+                                transition="transform .1s ease"
+                                _hover={{ transform: 'translateX(2px)' }}
+                                onClick={(e) => e.stopPropagation()}>
+                                <Text fontSize="9px" fontWeight="700" noOfLines={1} color={typeColor[event.type]}>{event.time} {event.title}</Text>
+                              </Box>
+                            </PopoverTrigger>
+                            <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                              <PopoverArrow bg="app.surface" />
+                              <PopoverBody p="14px">
+                                <EventPopup event={event} />
+                              </PopoverBody>
+                            </PopoverContent>
+                          </Popover>
                         ))}
                       </>
                     )}
@@ -253,18 +279,26 @@ export function Calendar() {
                     {dayEvents.length === 0 ? (
                       <Text fontSize="11px" color="app.faint">No events</Text>
                     ) : dayEvents.map((event) => (
-                      <Flex
-                        key={event.id}
-                        align="center"
-                        gap="8px"
-                        py="4px"
-                        draggable
-                        onDragStart={() => setDragEventId(event.id)}
-                        onClick={() => openDetail(event)}
-                        cursor="pointer">
-                        <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="44px">{event.time}</Text>
-                        <Box px="8px" py="4px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} flex="1"><Text fontSize="12px" fontWeight="600">{event.title}</Text></Box>
-                      </Flex>
+                      <Popover key={event.id} trigger="hover" placement="right" gutter={8}>
+                        <PopoverTrigger>
+                          <Flex
+                            align="center"
+                            gap="8px"
+                            py="4px"
+                            draggable
+                            onDragStart={() => setDragEventId(event.id)}
+                            cursor="pointer">
+                            <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="44px">{event.time}</Text>
+                            <Box px="8px" py="4px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} flex="1"><Text fontSize="12px" fontWeight="600">{event.title}</Text></Box>
+                          </Flex>
+                        </PopoverTrigger>
+                        <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                          <PopoverArrow bg="app.surface" />
+                          <PopoverBody p="14px">
+                            <EventPopup event={event} />
+                          </PopoverBody>
+                        </PopoverContent>
+                      </Popover>
                     ))}
                   </Box>
                 </Flex>
@@ -276,69 +310,27 @@ export function Calendar() {
             {events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).length === 0 ? (
               <Text py="40px" textAlign="center" fontSize="13px" color="app.faint">No events today. Click "New event" to add one.</Text>
             ) : events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).map((event) => (
-              <Flex key={event.id} align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" onClick={() => openDetail(event)} cursor="pointer">
-                <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="50px">{event.time}</Text>
-                <Box px="8px" py="6px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} borderLeft="2px solid" borderColor={typeColor[event.type]} flex="1">
-                  <Text fontSize="13px" fontWeight="600">{event.title}</Text>
-                  <Text fontSize="10px" color="app.subtle">{event.type}{event.sync ? ` · ${event.sync}` : ''}</Text>
-                </Box>
-              </Flex>
+              <Popover key={event.id} trigger="hover" placement="right" gutter={8}>
+                <PopoverTrigger>
+                  <Flex align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" cursor="pointer">
+                    <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="50px">{event.time}</Text>
+                    <Box px="8px" py="6px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} borderLeft="2px solid" borderColor={typeColor[event.type]} flex="1">
+                      <Text fontSize="13px" fontWeight="600">{event.title}</Text>
+                      <Text fontSize="10px" color="app.subtle">{event.type}{event.sync ? ` · ${event.sync}` : ''}</Text>
+                    </Box>
+                  </Flex>
+                </PopoverTrigger>
+                <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                  <PopoverArrow bg="app.surface" />
+                  <PopoverBody p="14px">
+                    <EventPopup event={event} />
+                  </PopoverBody>
+                </PopoverContent>
+              </Popover>
             ))}
           </Box>
         )}
       </Card>
-
-      {/* Floating detail modal */}
-      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
-        <ModalOverlay backdropFilter="blur(4px)" />
-        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden">
-          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
-            {detailEvent && (
-              <Flex align="center" gap="10px">
-                <Box w="8px" h="8px" borderRadius="full" bg={typeColor[detailEvent.type] ?? '#6b7488'} />
-                <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="16px">{detailEvent.title}</Text>
-              </Flex>
-            )}
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody py="18px">
-            {detailEvent && (
-              <Stack spacing="14px">
-                <Flex gap="8px" flexWrap="wrap">
-                  <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg={`${typeColor[detailEvent.type]}1a`} color={typeColor[detailEvent.type]} textTransform="capitalize">{detailEvent.type}</Badge>
-                  {detailEvent.sync && <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="#e8f0ff" color="#3355c9" textTransform="capitalize">{detailEvent.sync} sync</Badge>}
-                </Flex>
-                <Grid templateColumns="1fr 1fr" gap="10px">
-                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                    <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Date</Text></Flex>
-                    <Text mt="4px" fontSize="14px" fontWeight="700">{new Date(detailEvent.event_date).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}</Text>
-                  </Box>
-                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                    <Flex align="center" gap="6px"><Icon as={ClockIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Time</Text></Flex>
-                    <Text mt="4px" fontSize="14px" fontWeight="700">{detailEvent.time}</Text>
-                  </Box>
-                </Grid>
-                {detailEvent.description && (
-                  <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                    <Text fontSize="10px" color="app.faint" mb="4px">DESCRIPTION</Text>
-                    <Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailEvent.description}</Text>
-                  </Box>
-                )}
-                {detailEvent.sync && (
-                  <Flex align="center" gap="8px" p="12px" bg="#e8f0ff" borderRadius="10px">
-                    <Icon as={RefreshCwIcon} boxSize="14px" color="#3355c9" />
-                    <Text fontSize="11px" color="#3355c9" fontWeight="600">Synced with {detailEvent.sync}</Text>
-                  </Flex>
-                )}
-                <Flex gap="8px" pt="4px">
-                  <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailEvent); }}>Edit event</Button>
-                  <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailEvent.id); confirmDel.onOpen(); }}>Delete</Button>
-                </Flex>
-              </Stack>
-            )}
-          </ModalBody>
-        </ModalContent>
-      </Modal>
 
       <FormDrawer isOpen={formDrawer.isOpen} onClose={formDrawer.onClose} title={editing ? 'Edit event' : 'New event'} subtitle={editing ? 'Update event details' : 'Schedule a new event'} loading={saving} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl>

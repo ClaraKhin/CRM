@@ -81,7 +81,7 @@ export function Dashboard() {
     setLoading(true);
     const [dRes, tRes, aRes, cRes, pRes, lRes, iRes] = await Promise.all([
       supabase.from('deals').select('*').eq('user_id', session.user.id),
-      supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(8),
+      supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('activities').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(8),
       supabase.from('customers').select('*').eq('user_id', session.user.id),
       supabase.from('people').select('*').eq('user_id', session.user.id),

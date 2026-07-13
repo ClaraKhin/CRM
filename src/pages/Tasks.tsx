@@ -5,22 +5,26 @@ import {
   Box,
   Button,
   Checkbox,
+  Collapse,
   Flex,
   FormControl,
   FormLabel,
   Grid,
   HStack,
   Icon,
+  IconButton,
   Input,
-  InputGroup,
-  InputLeftElement,
   Modal,
   ModalBody,
   ModalCloseButton,
   ModalContent,
   ModalHeader,
   ModalOverlay,
-  Progress,
+  Popover,
+  PopoverArrow,
+  PopoverBody,
+  PopoverContent,
+  PopoverTrigger,
   Select,
   Spinner,
   Stack,
@@ -33,6 +37,8 @@ import {
   CalendarClockIcon,
   CalendarIcon,
   CheckCircleIcon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ClockIcon,
   FlameIcon,
   ListChecksIcon,
@@ -44,13 +50,13 @@ import {
 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
-import { StatusBadge } from '../components/ui/StatusBadge';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormDrawer } from '../components/ui/FormDrawer';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
+type Subtask = { id: string; parent_id: string; title: string; done: boolean; created_at: string };
 type Task = {
   id: string;
   title: string;
@@ -65,6 +71,7 @@ type Task = {
   recurring: string;
   reminder: boolean;
   created_at: string;
+  subtasks?: Subtask[];
 };
 
 const OWNERS = [
@@ -75,7 +82,7 @@ const OWNERS = [
 ];
 const PRIORITY_OPTIONS = ['High', 'Medium', 'Low'];
 const RECURRING_OPTIONS = ['None', 'Daily', 'Weekly', 'Monthly'];
-const STATUS_FILTERS = ['All', 'Pending', 'In Progress', 'Done'];
+const STATUS_GROUPS = ['Pending', 'In Progress', 'Done'] as const;
 
 const priorityColor: Record<string, string> = { High: '#c23c3c', Medium: '#b5760f', Low: '#6b7488' };
 const priorityBg: Record<string, string> = { High: '#fde8e8', Medium: '#fef3e0', Low: '#f0f2f5' };
@@ -84,10 +91,13 @@ export function Tasks() {
   const toast = useToast();
   const { session } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [filterPriority, setFilterPriority] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [newSubtaskParent, setNewSubtaskParent] = useState<string | null>(null);
+  const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
   const formDrawer = useDisclosure();
   const detailModal = useDisclosure();
   const confirmDel = useDisclosure();
@@ -103,43 +113,106 @@ export function Tasks() {
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const { data } = await supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false });
-    setTasks((data ?? []) as Task[]);
+    const [tRes, sRes] = await Promise.all([
+      supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
+      supabase.from('subtasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true })
+    ]);
+    setTasks((tRes.data ?? []) as Task[]);
+    setSubtasks((sRes.data ?? []) as Subtask[]);
     setLoading(false);
   }, [session]);
 
   useEffect(() => { load(); }, [load]);
 
+  const subtasksFor = (parentId: string) => subtasks.filter((s) => s.parent_id === parentId);
   const filtered = tasks
     .filter((t) => filterPriority === 'All' || t.priority === filterPriority)
-    .filter((t) => filterStatus === 'All' || t.status === filterStatus)
     .filter((t) => !search || t.title.toLowerCase().includes(search.toLowerCase()));
+
+  const grouped = STATUS_GROUPS.map((status) => ({
+    status,
+    items: filtered.filter((t) => t.status === status)
+  }));
 
   const pending = tasks.filter((t) => !t.done);
   const inProgress = tasks.filter((t) => t.status === 'In Progress');
   const done = tasks.filter((t) => t.done);
   const highPriority = pending.filter((t) => t.priority === 'High');
-  const overdue = pending.filter((t) => t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()));
   const completionRate = tasks.length > 0 ? Math.round((done.length / tasks.length) * 100) : 0;
 
-  const toggleDone = async (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const toggleExpand = (id: string) => {
+    setExpandedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleDone = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const newDone = !task.done;
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, done: newDone, status: newDone ? 'Done' : 'Pending' } : t));
     await supabase.from('tasks').update({ done: newDone, status: newDone ? 'Done' : 'Pending' }).eq('id', id).eq('user_id', session!.user.id);
-    if (newDone) toast({ title: 'Task completed', status: 'success', duration: 1400, position: 'top-right' });
   };
 
-  const cycleStatus = async (id: string, e?: React.MouseEvent) => {
-    e?.stopPropagation();
+  const cycleStatus = async (id: string) => {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const statuses = ['Pending', 'In Progress', 'Done'];
     const next = statuses[(statuses.indexOf(task.status) + 1) % statuses.length];
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: next, done: next === 'Done' } : t));
     await supabase.from('tasks').update({ status: next, done: next === 'Done' }).eq('id', id).eq('user_id', session!.user.id);
+  };
+
+  const toggleSubtaskDone = async (subId: string) => {
+    const st = subtasks.find((s) => s.id === subId);
+    if (!st) return;
+    const newDone = !st.done;
+    setSubtasks((prev) => prev.map((s) => s.id === subId ? { ...s, done: newDone } : s));
+    await supabase.from('subtasks').update({ done: newDone }).eq('id', subId).eq('user_id', session!.user.id);
+    // Update parent checklist
+    const parent = tasks.find((t) => t.id === st.parent_id);
+    if (parent && parent.checklist_total > 0) {
+      const siblings = subtasks.filter((s) => s.parent_id === st.parent_id);
+      const doneCount = siblings.filter((s) => s.done).length + (newDone ? 1 : -1) - (st.done ? 1 : 0);
+      const clamped = Math.max(0, Math.min(parent.checklist_total, doneCount));
+      await supabase.from('tasks').update({ checklist_done: clamped }).eq('id', parent.id).eq('user_id', session!.user.id);
+      setTasks((prev) => prev.map((t) => t.id === parent.id ? { ...t, checklist_done: clamped } : t));
+    }
+  };
+
+  const addSubtask = async () => {
+    if (!newSubtaskTitle.trim() || !newSubtaskParent) return;
+    const { data } = await supabase.from('subtasks').insert({
+      user_id: session!.user.id, parent_id: newSubtaskParent, title: newSubtaskTitle.trim()
+    }).select().maybeSingle();
+    if (data) {
+      setSubtasks((prev) => [...prev, data as Subtask]);
+      // Increment checklist_total on parent
+      const parent = tasks.find((t) => t.id === newSubtaskParent);
+      if (parent) {
+        const newTotal = parent.checklist_total + 1;
+        await supabase.from('tasks').update({ checklist_total: newTotal }).eq('id', parent.id).eq('user_id', session!.user.id);
+        setTasks((prev) => prev.map((t) => t.id === parent.id ? { ...t, checklist_total: newTotal } : t));
+      }
+    }
+    setNewSubtaskTitle('');
+  };
+
+  const deleteSubtask = async (subId: string) => {
+    const st = subtasks.find((s) => s.id === subId);
+    setSubtasks((prev) => prev.filter((s) => s.id !== subId));
+    await supabase.from('subtasks').delete().eq('id', subId).eq('user_id', session!.user.id);
+    if (st) {
+      const parent = tasks.find((t) => t.id === st.parent_id);
+      if (parent && parent.checklist_total > 0) {
+        const newTotal = parent.checklist_total - 1;
+        const newDone = Math.min(parent.checklist_done, newTotal);
+        await supabase.from('tasks').update({ checklist_total: newTotal, checklist_done: newDone }).eq('id', parent.id).eq('user_id', session!.user.id);
+        setTasks((prev) => prev.map((t) => t.id === parent.id ? { ...t, checklist_total: newTotal, checklist_done: newDone } : t));
+      }
+    }
   };
 
   const openCreate = () => {
@@ -199,7 +272,6 @@ export function Tasks() {
         subtitle="Your team's follow-ups and to-dos."
         actions={<Button size="sm" borderRadius="9px" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} leftIcon={<PlusIcon size={15} />} fontSize="12px" onClick={openCreate}>New task</Button>} />
 
-      {/* Stats cards */}
       <Grid templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }} gap="12px" mb="18px">
         {[
           { label: 'Pending', value: pending.length, icon: ClockIcon, color: '#b5760f', bg: '#fef3e0' },
@@ -224,24 +296,11 @@ export function Tasks() {
         })}
       </Grid>
 
-      {overdue.length > 0 && (
-        <Flex align="center" gap="8px" mb="14px" p="10px" bg="#fde8e8" borderRadius="10px">
-          <AlertCircleIcon size={15} color="#c23c3c" />
-          <Text fontSize="12px" color="#c23c3c" fontWeight="600">{overdue.length} overdue task{overdue.length > 1 ? 's' : ''} — review and reschedule</Text>
-        </Flex>
-      )}
-
       <Card>
-        <CardHeader title="All tasks" subtitle={`${filtered.length} tasks`} />
         <Flex px="16px" py="10px" gap="10px" align="center" flexWrap="wrap" borderBottom="1px solid" borderColor="app.border">
-          <InputGroup size="sm" maxW="220px">
-            <InputLeftElement pointerEvents="none"><SearchIcon size={13} color="#8a93a6" /></InputLeftElement>
-            <Input pl="32px" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} borderRadius="9px" bg="app.surfaceAlt" borderColor="app.border" fontSize="12px" />
-          </InputGroup>
-          <HStack spacing="4px">
-            {STATUS_FILTERS.map((s) => (
-              <Button key={s} size="xs" borderRadius="full" variant={filterStatus === s ? 'solid' : 'outline'} bg={filterStatus === s ? 'navy.600' : 'transparent'} color={filterStatus === s ? 'white' : 'app.subtle'} borderColor="app.border" _hover={{ bg: filterStatus === s ? 'navy.500' : 'app.surfaceAlt' }} fontSize="11px" onClick={() => setFilterStatus(s)}>{s}</Button>
-            ))}
+          <HStack spacing="4px" flex="1" maxW="280px">
+            <Input size="sm" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} borderRadius="9px" bg="app.surfaceAlt" borderColor="app.border" fontSize="12px" />
+            <Icon as={SearchIcon} boxSize="14px" color="app.faint" ml="-30px" />
           </HStack>
           <Select size="sm" maxW="130px" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} borderRadius="9px" borderColor="app.border" fontSize="12px" ml="auto">
             <option value="All">All priorities</option>
@@ -254,70 +313,108 @@ export function Tasks() {
         ) : filtered.length === 0 ? (
           <EmptyState icon={CheckCircleIcon} title="No tasks found" description="Create a new task to get started." action={<Button size="sm" bg="navy.600" color="white" borderRadius="9px" fontSize="12px" leftIcon={<PlusIcon size={15} />} onClick={openCreate}>New task</Button>} />
         ) : (
-          <Stack spacing="0">
-            {filtered.map((task) => {
-              const owner = OWNERS.find((o) => o.id === task.owner_id) ?? OWNERS[0];
-              const isOverdue = !task.done && task.due_date && new Date(task.due_date) < new Date(new Date().toDateString());
-              return (
-                <Flex
-                  key={task.id}
-                  align="center"
-                  gap="12px"
-                  px="16px"
-                  py="14px"
-                  borderBottom="1px solid"
-                  borderColor="app.border"
-                  opacity={task.done ? 0.5 : 1}
-                  cursor="pointer"
-                  onClick={() => openDetail(task)}
-                  _hover={{ bg: 'app.surfaceAlt' }}
-                  transition="background .12s ease">
-                  <Checkbox isChecked={task.done} onChange={(e) => toggleDone(task.id, e)} colorScheme="orange" onClick={(e) => e.stopPropagation()} />
-                  <Box
-                    w="4px"
-                    h="32px"
-                    borderRadius="full"
-                    bg={priorityColor[task.priority]}
-                    flexShrink={0}
-                  />
-                  <Box flex="1" minW="0">
-                    <Text fontSize="13px" fontWeight="600" textDecoration={task.done ? 'line-through' : 'none'} noOfLines={1}>{task.title}</Text>
-                    <Flex mt="5px" align="center" gap="10px" flexWrap="wrap">
-                      <Flex align="center" gap="4px" color={isOverdue ? '#c23c3c' : 'app.subtle'}>
-                        <Icon as={CalendarIcon} boxSize="11px" />
-                        <Text fontSize="10px" fontWeight={isOverdue ? '700' : '400'}>{task.due_date ?? 'No due date'}</Text>
-                        {isOverdue && <Text fontSize="9px" color="#c23c3c" fontWeight="700">OVERDUE</Text>}
-                      </Flex>
-                      {task.recurring !== 'None' && (
-                        <Flex align="center" gap="4px" color="app.subtle">
-                          <Icon as={RepeatIcon} boxSize="11px" />
-                          <Text fontSize="10px">{task.recurring}</Text>
-                        </Flex>
-                      )}
-                      {task.checklist_total > 0 && (
-                        <Flex align="center" gap="6px" minW="80px">
-                          <Progress value={task.checklist_done / task.checklist_total * 100} size="xs" colorScheme="orange" borderRadius="full" flex="1" bg="app.surfaceAlt" w="60px" />
-                          <Text fontSize="9px" color="app.faint">{task.checklist_done}/{task.checklist_total}</Text>
-                        </Flex>
-                      )}
-                    </Flex>
-                  </Box>
-                  <Badge fontSize="8px" borderRadius="full" px="6px" py="2px" bg={priorityBg[task.priority]} color={priorityColor[task.priority]} textTransform="capitalize">{task.priority}</Badge>
-                  <Button
-                    size="xs"
-                    variant="ghost"
-                    fontSize="10px"
-                    onClick={(e) => cycleStatus(task.id, e)}
-                    color={task.status === 'Done' ? '#1c8a5c' : task.status === 'In Progress' ? '#3355c9' : 'app.subtle'}
-                    _hover={{ bg: 'app.surfaceAlt' }}>
-                    {task.status}
-                  </Button>
-                  <Avatar size="2xs" name={owner.name} bg={owner.color} color="#46506a" fontSize="7px" />
-                  <Button size="xs" variant="ghost" color="#c23c3c" onClick={(e) => { e.stopPropagation(); setDeleteId(task.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button>
+          <Box px="16px" py="12px">
+            {grouped.map((group) => group.items.length > 0 && (
+              <Box key={group.status} mb="20px">
+                <Flex align="center" gap="8px" mb="10px">
+                  <Box w="6px" h="6px" borderRadius="full" bg={group.status === 'Done' ? '#1c8a5c' : group.status === 'In Progress' ? '#3355c9' : '#b5760f'} />
+                  <Text fontSize="11px" fontWeight="800" letterSpacing="0.06em" textTransform="uppercase" color="app.subtle">{group.status}</Text>
+                  <Badge fontSize="9px" borderRadius="full" px="6px" py="1px" bg="app.surfaceAlt" color="app.subtle">{group.items.length}</Badge>
                 </Flex>
-              );
-            })}
-          </Stack>
+                <Stack spacing="0">
+                  {group.items.map((task) => {
+                    const owner = OWNERS.find((o) => o.id === task.owner_id) ?? OWNERS[0];
+                    const isOverdue = !task.done && task.due_date && new Date(task.due_date) < new Date(new Date().toDateString());
+                    const isExpanded = expandedIds.has(task.id);
+                    const taskSubs = subtasksFor(task.id);
+                    return (
+                      <Box key={task.id}>
+                        <Flex
+                          align="center"
+                          gap="10px"
+                          py="12px"
+                          borderBottom="1px solid"
+                          borderColor="app.border"
+                          opacity={task.done ? 0.5 : 1}
+                          _hover={{ bg: 'app.surfaceAlt' }}
+                          borderRadius="8px"
+                          px="6px"
+                          transition="background .12s ease">
+                          <Checkbox isChecked={task.done} onChange={() => toggleDone(task.id)} colorScheme="orange" />
+                          {taskSubs.length > 0 && (
+                            <IconButton
+                              aria-label="Toggle subtasks"
+                              icon={isExpanded ? <ChevronDownIcon size={15} /> : <ChevronRightIcon size={15} />}
+                              size="xs"
+                              variant="ghost"
+                              onClick={() => toggleExpand(task.id)}
+                              color="app.subtle"
+                            />
+                          )}
+                          <Box w="4px" h="28px" borderRadius="full" bg={priorityColor[task.priority]} flexShrink={0} cursor="pointer" onClick={() => openDetail(task)} />
+                          <Box flex="1" minW="0" cursor="pointer" onClick={() => openDetail(task)}>
+                            <Text fontSize="13px" fontWeight="600" textDecoration={task.done ? 'line-through' : 'none'} noOfLines={1}>{task.title}</Text>
+                            <Flex mt="4px" align="center" gap="10px" flexWrap="wrap">
+                              {task.due_date && (
+                                <Flex align="center" gap="4px" color={isOverdue ? '#c23c3c' : 'app.subtle'}>
+                                  <Icon as={CalendarIcon} boxSize="11px" />
+                                  <Text fontSize="10px" fontWeight={isOverdue ? '700' : '400'}>{task.due_date}</Text>
+                                  {isOverdue && <Text fontSize="9px" color="#c23c3c" fontWeight="700">OVERDUE</Text>}
+                                </Flex>
+                              )}
+                              {task.recurring !== 'None' && (
+                                <Flex align="center" gap="4px" color="app.subtle"><Icon as={RepeatIcon} boxSize="11px" /><Text fontSize="10px">{task.recurring}</Text></Flex>
+                              )}
+                              {taskSubs.length > 0 && (
+                                <Flex align="center" gap="4px" color="app.subtle">
+                                  <Icon as={ListChecksIcon} boxSize="11px" />
+                                  <Text fontSize="10px">{taskSubs.filter((s) => s.done).length}/{taskSubs.length}</Text>
+                                </Flex>
+                              )}
+                            </Flex>
+                          </Box>
+                          <Badge fontSize="8px" borderRadius="full" px="6px" py="2px" bg={priorityBg[task.priority]} color={priorityColor[task.priority]} textTransform="capitalize">{task.priority}</Badge>
+                          <Button size="xs" variant="ghost" fontSize="10px" onClick={() => cycleStatus(task.id)} color={task.status === 'Done' ? '#1c8a5c' : task.status === 'In Progress' ? '#3355c9' : 'app.subtle'} _hover={{ bg: 'app.surfaceAlt' }}>{task.status}</Button>
+                          <Avatar size="2xs" name={owner.name} bg={owner.color} color="#46506a" fontSize="7px" />
+                          <Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(task.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button>
+                        </Flex>
+
+                        {/* Subtasks (ClickUp-style expand) */}
+                        <Collapse in={isExpanded} animateOpacity>
+                          <Box ml="52px" mt="4px" mb="8px" pl="14px" borderLeft="2px solid" borderColor="app.border">
+                            {taskSubs.map((st) => (
+                              <Flex key={st.id} align="center" gap="8px" py="6px" _hover={{ bg: 'app.surfaceAlt' }} borderRadius="6px" px="6px">
+                                <Checkbox isChecked={st.done} onChange={() => toggleSubtaskDone(st.id)} colorScheme="orange" size="sm" />
+                                <Text fontSize="12px" flex="1" textDecoration={st.done ? 'line-through' : 'none'} color={st.done ? 'app.faint' : 'app.subtle'}>{st.title}</Text>
+                                <IconButton aria-label="Delete subtask" icon={<Trash2Icon size={11} />} size="xs" variant="ghost" color="#c23c3c" onClick={() => deleteSubtask(st.id)} />
+                              </Flex>
+                            ))}
+                            <Flex align="center" gap="8px" py="6px" px="6px">
+                              <PlusIcon size={14} color="#8a93a6" />
+                              <Input
+                                size="xs"
+                                placeholder="Add subtask..."
+                                value={newSubtaskParent === task.id ? newSubtaskTitle : ''}
+                                onChange={(e) => { setNewSubtaskParent(task.id); setNewSubtaskTitle(e.target.value); }}
+                                onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); }}
+                                borderRadius="6px"
+                                borderColor="app.border"
+                                fontSize="11px"
+                                maxW="300px"
+                              />
+                              {newSubtaskParent === task.id && newSubtaskTitle.trim() && (
+                                <Button size="xs" variant="ghost" color="#1c8a5c" onClick={addSubtask}>Add</Button>
+                              )}
+                            </Flex>
+                          </Box>
+                        </Collapse>
+                      </Box>
+                    );
+                  })}
+                </Stack>
+              </Box>
+            ))}
+          </Box>
         )}
       </Card>
 
@@ -338,6 +435,7 @@ export function Tasks() {
             {detailTask && (() => {
               const owner = OWNERS.find((o) => o.id === detailTask.owner_id) ?? OWNERS[0];
               const isOverdue = !detailTask.done && detailTask.due_date && new Date(detailTask.due_date) < new Date(new Date().toDateString());
+              const taskSubs = subtasksFor(detailTask.id);
               return (
                 <Stack spacing="14px">
                   <Flex gap="8px" flexWrap="wrap">
@@ -353,20 +451,22 @@ export function Tasks() {
                       {isOverdue && <Text fontSize="10px" color="#c23c3c" fontWeight="700">OVERDUE</Text>}
                     </Box>
                     <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
-                      <Flex align="center" gap="6px"><Icon as={ListChecksIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Checklist</Text></Flex>
-                      <Text mt="4px" fontSize="14px" fontWeight="700">{detailTask.checklist_done}/{detailTask.checklist_total}</Text>
+                      <Flex align="center" gap="6px"><Icon as={ListChecksIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint">Subtasks</Text></Flex>
+                      <Text mt="4px" fontSize="14px" fontWeight="700">{taskSubs.filter((s) => s.done).length}/{taskSubs.length || detailTask.checklist_total}</Text>
                     </Box>
                   </Grid>
 
-                  {detailTask.checklist_total > 0 && (
-                    <Box>
-                      <Flex justify="space-between" mb="6px">
-                        <Text fontSize="11px" color="app.subtle">Progress</Text>
-                        <Text fontSize="11px" fontWeight="700">{Math.round(detailTask.checklist_done / detailTask.checklist_total * 100)}%</Text>
-                      </Flex>
-                      <Box w="full" h="8px" bg="app.surfaceAlt" borderRadius="full" overflow="hidden">
-                        <Box h="full" bg="#e9683f" borderRadius="full" style={{ width: `${detailTask.checklist_done / detailTask.checklist_total * 100}%` }} />
-                      </Box>
+                  {taskSubs.length > 0 && (
+                    <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
+                      <Text fontSize="10px" color="app.faint" mb="8px">SUBTASKS</Text>
+                      <Stack spacing="4px">
+                        {taskSubs.map((st) => (
+                          <Flex key={st.id} align="center" gap="8px">
+                            <Checkbox isChecked={st.done} onChange={() => toggleSubtaskDone(st.id)} colorScheme="orange" size="sm" />
+                            <Text fontSize="12px" flex="1" textDecoration={st.done ? 'line-through' : 'none'} color={st.done ? 'app.faint' : 'app.subtle'}>{st.title}</Text>
+                          </Flex>
+                        ))}
+                      </Stack>
                     </Box>
                   )}
 
@@ -382,9 +482,7 @@ export function Tasks() {
                   </Box>
 
                   <Flex gap="8px" pt="4px">
-                    {!detailTask.done && (
-                      <Button size="sm" flex="1" bg="#1c8a5c" color="white" _hover={{ bg: '#167a4e' }} borderRadius="9px" fontSize="12px" leftIcon={<CheckCircleIcon size={13} />} onClick={(e) => { toggleDone(detailTask.id, e); detailModal.onClose(); }}>Mark done</Button>
-                    )}
+                    {!detailTask.done && <Button size="sm" flex="1" bg="#1c8a5c" color="white" _hover={{ bg: '#167a4e' }} borderRadius="9px" fontSize="12px" leftIcon={<CheckCircleIcon size={13} />} onClick={() => { toggleDone(detailTask.id); detailModal.onClose(); }}>Mark done</Button>}
                     <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailTask); }}>Edit task</Button>
                     <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailTask.id); confirmDel.onOpen(); }}>Delete</Button>
                   </Flex>
@@ -446,7 +544,7 @@ export function Tasks() {
         </FormControl>
       </FormDrawer>
 
-      <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete task" message="Are you sure you want to delete this task?" confirmLabel="Delete" danger onConfirm={handleDelete} />
+      <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete task" message="Are you sure you want to delete this task and its subtasks?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>
   );
 }

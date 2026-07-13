@@ -8,6 +8,7 @@ import {
   Flex,
   FormControl,
   FormLabel,
+  Grid,
   HStack,
   Icon,
   IconButton,
@@ -18,7 +19,6 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
-  Grid,
   Modal,
   ModalBody,
   ModalCloseButton,
@@ -44,13 +44,14 @@ import {
   CheckCircleIcon,
   CopyIcon,
   DownloadIcon,
+  FlameIcon,
   MailIcon,
   MoreHorizontalIcon,
   PhoneIcon,
   PlusIcon,
   SearchIcon,
   Trash2Icon,
-  UploadIcon,
+  TrendingUpIcon,
   UserPlusIcon,
   UsersRoundIcon } from
 'lucide-react';
@@ -89,6 +90,8 @@ const OWNERS = [
   { id: 'o3', name: 'Priya Nair', color: '#eadbff' },
   { id: 'o4', name: 'Diego Alvarez', color: '#c9f0e3' }
 ];
+const sourceIcon: Record<string, string> = { Website: '🌐', Facebook: '📘', 'Google Ads': '🔍', Referral: '🤝', 'Walk-in': '🚶', Event: '📅', Manual: '✏️' };
+const statusFlow: Record<string, string> = { New: '#6c7aea', Contacted: '#4f9de0', Qualified: '#2d9c79', Proposal: '#f0a13c', Won: '#1c8a5c', Lost: '#c23c3c', Unqualified: '#6b7488' };
 
 export function Leads() {
   const toast = useToast();
@@ -264,7 +267,7 @@ export function Leads() {
             <Table size="sm" variant="simple">
               <Thead>
                 <Tr>
-                  <Th borderColor="app.border" fontSize="10px" color="app.faint" w="32px">
+                  <Th borderColor="app.border" fontSize="10px" color="app.faint" w="36px">
                     <Checkbox isChecked={list.selectedIds.size === list.data.length && list.data.length > 0} onChange={list.toggleSelectAll} colorScheme="orange" />
                   </Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint">Lead</Th>
@@ -283,26 +286,36 @@ export function Leads() {
                   const dup = checkDuplicate(lead);
                   return (
                     <Tr key={lead.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => { setDetailLead(lead); detailModal.onOpen(); }}>
-                      <Td borderColor="app.border">
+                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
                         <Checkbox isChecked={list.selectedIds.has(lead.id)} onChange={() => list.toggleSelect(lead.id)} colorScheme="orange" />
                       </Td>
                       <Td borderColor="app.border">
                         <Flex align="center" gap="10px">
                           <Avatar size="sm" name={person?.name ?? '?'} bg={person?.avatar_color ?? '#d8e7ff'} color="#46506a" fontSize="10px" />
                           <Box>
-                            <Text fontSize="12px" fontWeight="700">{person?.name ?? 'Unknown'}</Text>
+                            <Flex align="center" gap="5px">
+                              <Text fontSize="12px" fontWeight="700">{person?.name ?? 'Unknown'}</Text>
+                              {dup && <Icon as={CopyIcon} size={12} color="#b5760f" />}
+                            </Flex>
                             <Text fontSize="10px" color="app.subtle">{person?.company ?? ''}</Text>
                           </Box>
-                          {dup && <Icon as={CopyIcon} size={13} color="#b5760f" />}
                         </Flex>
                       </Td>
                       <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }}>
-                        <Text fontSize="12px" color="app.subtle">{lead.source}</Text>
+                        <Flex align="center" gap="6px">
+                          <Text fontSize="12px">{sourceIcon[lead.source] ?? '📌'}</Text>
+                          <Text fontSize="11px" color="app.subtle">{lead.source}</Text>
+                        </Flex>
                       </Td>
                       <Td borderColor="app.border">
                         <ScoreBadge score={lead.ai_score} />
                       </Td>
-                      <Td borderColor="app.border"><StatusBadge status={lead.status} /></Td>
+                      <Td borderColor="app.border">
+                        <Flex align="center" gap="6px">
+                          <Box w="6px" h="6px" borderRadius="full" bg={statusFlow[lead.status] ?? '#6b7488'} flexShrink={0} />
+                          <StatusBadge status={lead.status} />
+                        </Flex>
+                      </Td>
                       <Td borderColor="app.border" display={{ base: 'none', lg: 'table-cell' }}>
                         <HStack spacing="7px">
                           <Avatar size="2xs" name={owner.name} bg={owner.color} color="#46506a" fontSize="8px" />
@@ -310,15 +323,12 @@ export function Leads() {
                         </HStack>
                       </Td>
                       <Td borderColor="app.border" isNumeric fontSize="12px" fontWeight="700">${(lead.value ?? 0).toLocaleString()}</Td>
-                      <Td borderColor="app.border">
+                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
                         <Menu placement="bottom-end">
-                          <MenuButton as={IconButton} aria-label="Lead actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="xs" onClick={(e) => e.stopPropagation()} />
+                          <MenuButton as={IconButton} aria-label="Lead actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="xs" />
                           <MenuList bg="app.surface" borderColor="app.border">
                             <MenuItem bg="app.surface" fontSize="12px" icon={<UserPlusIcon size={14} />} onClick={() => openEdit(lead)}>Edit lead</MenuItem>
-                            <MenuItem bg="app.surface" fontSize="12px" icon={<CheckCircleIcon size={14} />} onClick={async () => {
-                              await mutation.update(lead.id, { status: 'Qualified' });
-                              toast({ title: 'Lead qualified', status: 'success', duration: 1800, position: 'top-right' });
-                            }}>Qualify</MenuItem>
+                            <MenuItem bg="app.surface" fontSize="12px" icon={<CheckCircleIcon size={14} />} onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
                             <MenuItem bg="app.surface" fontSize="12px" icon={<CalendarPlusIcon size={14} />} onClick={async () => {
                               const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1);
                               await mutation.update(lead.id, { follow_up_date: tomorrow.toISOString().split('T')[0] });
@@ -413,13 +423,14 @@ export function Leads() {
               const p = personById(detailLead.person_id);
               return (
                 <Stack spacing="14px">
-                  {/* Status + source */}
                   <Flex gap="8px" flexWrap="wrap">
-                    <StatusBadge status={detailLead.status} />
-                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle">{detailLead.source}</Badge>
+                    <Flex align="center" gap="6px">
+                      <Box w="6px" h="6px" borderRadius="full" bg={statusFlow[detailLead.status] ?? '#6b7488'} />
+                      <StatusBadge status={detailLead.status} />
+                    </Flex>
+                    <Badge fontSize="9px" borderRadius="full" px="8px" py="2px" bg="app.surfaceAlt" color="app.subtle">{sourceIcon[detailLead.source] ?? '📌'} {detailLead.source}</Badge>
                   </Flex>
 
-                  {/* Score + value */}
                   <Grid templateColumns="1fr 1fr" gap="10px">
                     <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
                       <Text fontSize="10px" color="app.faint">Lead score</Text>
@@ -431,7 +442,6 @@ export function Leads() {
                     </Box>
                   </Grid>
 
-                  {/* AI score bar */}
                   <Box>
                     <Flex justify="space-between" mb="6px">
                       <Text fontSize="11px" color="app.subtle">AI score</Text>
@@ -442,7 +452,6 @@ export function Leads() {
                     </Box>
                   </Box>
 
-                  {/* Contact info */}
                   {p && (
                     <Box p="14px" bg="app.surfaceAlt" borderRadius="12px">
                       <Text fontSize="10px" color="app.faint" mb="8px">CONTACT</Text>
@@ -451,7 +460,6 @@ export function Leads() {
                     </Box>
                   )}
 
-                  {/* Details */}
                   <Grid templateColumns="1fr 1fr" gap="10px">
                     <Box><Text fontSize="10px" color="app.faint">Owner</Text><Text fontSize="12px" fontWeight="600">{detailLead.owner_name || '—'}</Text></Box>
                     <Box><Text fontSize="10px" color="app.faint">Follow-up</Text><Text fontSize="12px" fontWeight="600">{detailLead.follow_up_date ?? '—'}</Text></Box>

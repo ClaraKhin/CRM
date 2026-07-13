@@ -3,13 +3,6 @@ import {
   Avatar,
   Box,
   Button,
-  Checkbox,
-  Drawer,
-  DrawerBody,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerHeader,
-  DrawerOverlay,
   Flex,
   FormControl,
   FormLabel,
@@ -24,8 +17,15 @@ import {
   MenuButton,
   MenuItem,
   MenuList,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
+  Stack,
   Tag,
   Text,
   useDisclosure,
@@ -84,7 +84,7 @@ export function Customers() {
   });
   const mutation = useCrudMutation<Customer>('customers', { onSuccess: list.refetch });
   const formDrawer = useDisclosure();
-  const detailDrawer = useDisclosure();
+  const detailModal = useDisclosure();
   const confirmDel = useDisclosure();
   const confirmBulk = useDisclosure();
   const [editing, setEditing] = useState<Customer | null>(null);
@@ -132,7 +132,7 @@ export function Customers() {
 
   const openDetail = async (customer: Customer) => {
     setSelected(customer);
-    detailDrawer.onOpen();
+    detailModal.onOpen();
     if (session?.user && customer.person_id) {
       const [aData, dData] = await Promise.all([
         supabase.from('activities').select('*').eq('user_id', session.user.id).eq('person_id', customer.person_id).order('created_at', { ascending: false }).limit(10),
@@ -352,12 +352,11 @@ export function Customers() {
         </FormControl>
       </FormDrawer>
 
-      {/* Detail Drawer */}
-      <Drawer isOpen={detailDrawer.isOpen} placement="right" onClose={detailDrawer.onClose} size="md">
-        <DrawerOverlay />
-        <DrawerContent bg="app.surface">
-          <DrawerCloseButton />
-          <DrawerHeader borderBottom="1px solid" borderColor="app.border">
+      {/* Detail Modal */}
+      <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="18px" overflow="hidden" maxH="85vh" overflowY="auto">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
             {detailPerson && (
               <Flex align="center" gap="12px">
                 <Avatar size="md" name={detailPerson.name} bg={detailPerson.avatar_color} color="#46506a" />
@@ -367,8 +366,9 @@ export function Customers() {
                 </Box>
               </Flex>
             )}
-          </DrawerHeader>
-          <DrawerBody>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
             {selected && detailPerson && (
               <Box>
                 <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="9px">CONTACT</Text>
@@ -443,11 +443,15 @@ export function Customers() {
                   <Text fontSize="12px" flex="1">No documents uploaded</Text>
                   <Button size="xs" variant="ghost" onClick={() => toast({ title: 'Upload started', status: 'info', duration: 1500, position: 'top-right' })}>Upload</Button>
                 </Flex>
+                <Flex gap="8px" pt="4px">
+                  <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(selected); }}>Edit customer</Button>
+                  <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(selected.id); confirmDel.onOpen(); }}>Delete</Button>
+                </Flex>
               </Box>
             )}
-          </DrawerBody>
-        </DrawerContent>
-      </Drawer>
+          </ModalBody>
+        </ModalContent>
+      </Modal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete customer" message="Are you sure you want to delete this customer? This action cannot be undone." confirmLabel="Delete" danger loading={mutation.loading} onConfirm={handleDelete} />
       <ConfirmDialog isOpen={confirmBulk.isOpen} onClose={confirmBulk.onClose} title="Delete selected customers" message={`Delete ${list.selectedIds.size} customers? This action cannot be undone.`} confirmLabel="Delete all" danger loading={mutation.loading} onConfirm={handleBulkDelete} />
