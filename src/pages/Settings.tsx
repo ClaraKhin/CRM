@@ -272,17 +272,32 @@ export function Settings() {
     if (!userForm.email.trim() || !userForm.full_name.trim()) { toast({ title: 'Email and name are required', status: 'error', duration: 2000, position: 'top-right' }); return; }
     setSavingUser(true);
     if (editingUserId) {
-      const { error } = await supabase.from('profiles').update({ full_name: userForm.full_name, role: userForm.role, avatar_color: userForm.avatar_color }).eq('id', editingUserId);
-      if (error) toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      // Edit: update profile fields only (no auth.users change needed)
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'update', userId: editingUserId, full_name: userForm.full_name, role: userForm.role, avatar_color: userForm.avatar_color }
+      });
+      if (error || data?.error) toast({ title: 'Update failed', description: error?.message ?? data?.error, status: 'error', duration: 3000, position: 'top-right' });
       else toast({ title: 'User updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
-      const { error } = await supabase.from('profiles').insert({ id: session!.user.id, email: userForm.email, full_name: userForm.full_name, role: userForm.role, avatar_color: userForm.avatar_color });
-      if (error) toast({ title: 'Create failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      else toast({ title: 'User created', status: 'success', duration: 2000, position: 'top-right' });
+      // Create: use Edge Function which calls Admin API and creates auth.identities correctly
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: 'create', email: userForm.email, full_name: userForm.full_name, role: userForm.role, avatar_color: userForm.avatar_color }
+      });
+      if (error || data?.error) {
+        toast({ title: 'Create failed', description: error?.message ?? data?.error, status: 'error', duration: 3000, position: 'top-right' });
+      } else {
+        toast({ title: 'User created', description: `A temporary password has been set. Ask them to use "Forgot password" to set their own.`, status: 'success', duration: 5000, position: 'top-right' });
+      }
     }
     setSavingUser(false); userModal.onClose(); loadUsers();
   };
-  const handleDeleteUser = async () => { if (!deleteUserId) return; await supabase.from('profiles').delete().eq('id', deleteUserId); toast({ title: 'User deleted', status: 'success', duration: 1800, position: 'top-right' }); confirmUserDel.onClose(); setDeleteUserId(null); loadUsers(); };
+  const handleDeleteUser = async () => {
+    if (!deleteUserId) return;
+    const { data, error } = await supabase.functions.invoke('manage-user', { body: { action: 'delete', userId: deleteUserId } });
+    if (error || data?.error) toast({ title: 'Delete failed', description: error?.message ?? data?.error, status: 'error', duration: 3000, position: 'top-right' });
+    else toast({ title: 'User deleted', status: 'success', duration: 1800, position: 'top-right' });
+    confirmUserDel.onClose(); setDeleteUserId(null); loadUsers();
+  };
 
   // Custom Field CRUD
   const openCreateField = () => { setEditingFieldId(null); setFieldForm({ entity_type: 'lead', field_name: '', field_label: '', field_type: 'text', field_options: '', is_required: false }); fieldModal.onOpen(); };
