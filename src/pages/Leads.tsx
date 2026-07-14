@@ -34,7 +34,9 @@ import {
 import {
   CalendarPlusIcon,
   CheckCircleIcon,
+  CopyIcon,
   DownloadIcon,
+  GitMergeIcon,
   MailIcon,
   MoreHorizontalIcon,
   PhoneIcon,
@@ -153,11 +155,14 @@ export function Leads() {
   const confirmDel = useDisclosure();
   const confirmBulk = useDisclosure();
   const detailModal = useDisclosure();
+  const dupModal = useDisclosure();
   const [editing, setEditing] = useState<Lead | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [detailLead, setDetailLead] = useState<Lead | null>(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', company: '', source: 'Website', status: 'New', owner_id: 'o1', value: 0, follow_up_date: '' });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+  const [duplicates, setDuplicates] = useState<{ key: string; leads: (Lead & { person: Person | null })[] }[]>([]);
+  const [scanning, setScanning] = useState(false);
 
   useEffect(() => {
     if (!session?.user) return;
@@ -235,6 +240,36 @@ export function Leads() {
     list.refetch();
   };
 
+  const scanDuplicates = async () => {
+    setScanning(true);
+    const { data: allLeads } = await supabase.from('leads').select('*').eq('user_id', session!.user.id);
+    const allPeopleMap = new Map(people.map((p) => [p.id, p]));
+    const groups: Record<string, (Lead & { person: Person | null })[]> = {};
+    for (const lead of (allLeads ?? []) as Lead[]) {
+      const person = lead.person_id ? allPeopleMap.get(lead.person_id) ?? null : null;
+      const enrichedLead = { ...lead, person };
+      if (person?.email) { const key = `email:${person.email.toLowerCase()}`; (groups[key] ??= []).push(enrichedLead); }
+      if (person?.phone) { const key = `phone:${person.phone}`; (groups[key] ??= []).push(enrichedLead); }
+      if (person?.company) { const key = `company:${person.company.toLowerCase()}`; (groups[key] ??= []).push(enrichedLead); }
+    }
+    const dupGroups = Object.entries(groups).filter(([, leads]) => leads.length > 1).map(([key, leads]) => ({ key, leads }));
+    setDuplicates(dupGroups);
+    setScanning(false);
+    dupModal.onOpen();
+    toast({ title: `Found ${dupGroups.length} duplicate group${dupGroups.length !== 1 ? 's' : ''}`, status: dupGroups.length > 0 ? 'warning' : 'success', duration: 3000, position: 'top-right' });
+  };
+
+  const mergeLeads = async (group: { key: string; leads: (Lead & { person: Person | null })[] }) => {
+    if (group.leads.length < 2) return;
+    const sorted = [...group.leads].sort((a, b) => (b.ai_score ?? 0) - (a.ai_score ?? 0));
+    const master = sorted[0];
+    const toDelete = sorted.slice(1).map((l) => l.id);
+    await supabase.from('leads').delete().in('id', toDelete).eq('user_id', session!.user.id);
+    setDuplicates((prev) => prev.filter((g) => g.key !== group.key));
+    list.refetch();
+    toast({ title: `Merged ${toDelete.length} duplicate${toDelete.length !== 1 ? 's' : ''} into master record`, status: 'success', duration: 3000, position: 'top-right' });
+  };
+
   const COLS = [
     { key: 'lead', label: 'LEAD', w: 'auto', minW: '200px' },
     { key: 'source', label: 'SOURCE', w: '140px' },
@@ -252,6 +287,21 @@ export function Leads() {
         subtitle="Track, score, and qualify inbound leads."
         actions={
           <HStack spacing="8px">
+            <Button
+              size="sm"
+              variant="ghost"
+              color="app.subtle"
+              borderRadius="10px"
+              fontSize="13px"
+              fontWeight="500"
+              h="36px"
+              px="14px"
+              leftIcon={<GitMergeIcon size={14} />}
+              _hover={{ bg: 'app.surfaceAlt' }}
+              isLoading={scanning}
+              onClick={scanDuplicates}>
+              Duplicates
+            </Button>
             <Button
               size="sm"
               variant="ghost"
@@ -654,6 +704,43 @@ export function Leads() {
               </>
             );
           })()}
+        </ModalContent>
+      </Modal>
+
+      {/* Duplicate Detection Modal */}
+      <Modal isOpen={dupModal.isOpen} onClose={dupModal.onClose} size="lg" isCentered>
+        <ModalOverlay backdropFilter="blur(6px)" bg="rgba(15,21,35,0.4)" />
+        <ModalContent bg="white" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)" maxH="80vh">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="16px">
+            <Flex align="center" gap="10px"><Icon as={GitMergeIcon} boxSize="18px" color="#e9683f" /><Box><Text fontSize="16px" fontWeight="800" fontFamily="'Plus Jakarta Sans', sans-serif">Duplicate Management</Text><Text fontSize="11px" color="#98a1b2" fontWeight="400">Detect and merge similar lead records</Text></Box></Flex>
+          </ModalHeader>
+          <ModalCloseButton top="20px" right="20px" color="#98a1b2" _hover={{ bg: '#f0f2f6', color: '#1d273d' }} borderRadius="8px" />
+          <ModalBody py="20px" overflowY="auto">
+            {duplicates.length === 0 ? (
+              <Flex direction="column" align="center" py="40px"><Icon as={CheckCircleIcon} boxSize="32px" color="#1c8a5c" /><Text mt="12px" fontSize="14px" fontWeight="700" color="#1d273d">No duplicates found</Text><Text fontSize="12px" color="#98a1b2">All lead records are unique.</Text></Flex>
+            ) : (
+              <Stack spacing="16px">
+                {duplicates.map((group) => (
+                  <Box key={group.key} p="14px" bg="#fafbfd" borderRadius="12px" border="1px solid #f0f2f6">
+                    <Flex align="center" gap="8px" mb="10px">
+                      <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg="#fef3e0" color="#b5760f" textTransform="capitalize">{group.key.split(':')[0]}</Badge>
+                      <Text fontSize="11px" color="#98a1b2">{group.key.split(':')[1]}</Text>
+                      <Text fontSize="11px" fontWeight="600" color="#1d273d" ml="auto">{group.leads.length} records</Text>
+                    </Flex>
+                    {group.leads.map((dupLead, i) => (
+                      <Flex key={dupLead.id} align="center" gap="10px" py="8px" px="6px" bg={i === 0 ? 'rgba(28,138,92,0.05)' : 'transparent'} borderRadius="8px">
+                        <Box w="20px" flexShrink={0}>{i === 0 && <Text fontSize="9px" fontWeight="800" color="#1c8a5c">MASTER</Text>}</Box>
+                        <Avatar size="2xs" name={dupLead.person?.name ?? '?'} bg={dupLead.person?.avatar_color ?? '#d8e7ff'} color="#46506a" />
+                        <Box flex="1"><Text fontSize="12px" fontWeight="600" noOfLines={1}>{dupLead.person?.name ?? 'Unknown'}</Text><Text fontSize="10px" color="#98a1b2">{dupLead.person?.company ?? '—'} · Score {dupLead.ai_score}</Text></Box>
+                        <StatusPill status={dupLead.status} />
+                      </Flex>
+                    ))}
+                    <Button mt="8px" size="xs" w="full" bg="#1a2035" color="white" borderRadius="8px" fontSize="11px" fontWeight="600" _hover={{ bg: '#253050' }} leftIcon={<GitMergeIcon size={12} />} onClick={() => mergeLeads(group)}>Merge into master record</Button>
+                  </Box>
+                ))}
+              </Stack>
+            )}
+          </ModalBody>
         </ModalContent>
       </Modal>
     </>
