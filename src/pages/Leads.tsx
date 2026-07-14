@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -164,10 +164,12 @@ export function Leads() {
   const [duplicates, setDuplicates] = useState<{ key: string; leads: (Lead & { person: Person | null })[] }[]>([]);
   const [scanning, setScanning] = useState(false);
 
-  useEffect(() => {
+  const fetchPeople = useCallback(() => {
     if (!session?.user) return;
     supabase.from('people').select('*').eq('user_id', session.user.id).then(({ data }) => setPeople((data ?? []) as Person[]));
   }, [session]);
+
+  useEffect(() => { fetchPeople(); }, [fetchPeople]);
 
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
   const ownerById = (id: string) => OWNERS.find((o) => o.id === id) ?? OWNERS[0];
@@ -200,15 +202,25 @@ export function Leads() {
     if (!validate()) return;
     const owner = ownerById(form.owner_id);
     if (editing) {
-      if (editing.person_id) await supabase.from('people').update({ name: form.name, email: form.email, phone: form.phone, company: form.company }).eq('id', editing.person_id);
+      if (editing.person_id) await supabase.from('people').update({ name: form.name, email: form.email.trim() || null, phone: form.phone.trim() || null, company: form.company.trim() || null }).eq('id', editing.person_id);
       const { error } = await mutation.update(editing.id, { source: form.source, status: form.status, owner_id: form.owner_id, owner_name: owner.name, value: Number(form.value), follow_up_date: form.follow_up_date || null });
       if (error) { toast({ title: 'Update failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
+      fetchPeople();
       toast({ title: 'Lead updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
-      const { data: person } = await supabase.from('people').insert({ user_id: session!.user.id, name: form.name, email: form.email, phone: form.phone, company: form.company, avatar_color: ['#d8e7ff', '#eadbff', '#c9f0e3', '#ffe0ee', '#f9dfbe', '#e0dcff'][Math.floor(Math.random() * 6)] }).select().maybeSingle();
+      const { data: person, error: personErr } = await supabase.from('people').insert({
+        user_id: session!.user.id,
+        name: form.name,
+        email: form.email.trim() || null,
+        phone: form.phone.trim() || null,
+        company: form.company.trim() || null,
+        avatar_color: ['#d8e7ff', '#eadbff', '#c9f0e3', '#ffe0ee', '#f9dfbe', '#e0dcff'][Math.floor(Math.random() * 6)]
+      }).select().maybeSingle();
+      if (personErr) { toast({ title: 'Create failed', description: personErr.message, status: 'error', duration: 3000, position: 'top-right' }); return; }
       const aiScore = Math.min(100, Math.max(0, Number(form.value) > 20000 ? 85 : 60 + Math.floor(Math.random() * 20)));
-      const { error } = await mutation.insert({ person_id: person?.id ?? null, source: form.source, score: 50, ai_score: aiScore, status: form.status, owner_id: form.owner_id, owner_name: owner.name, value: Number(form.value), follow_up_date: form.follow_up_date || null });
+      const { error } = await mutation.insert({ person_id: person!.id, source: form.source, score: 50, ai_score: aiScore, status: form.status, owner_id: form.owner_id, owner_name: owner.name, value: Number(form.value), follow_up_date: form.follow_up_date || null });
       if (error) { toast({ title: 'Create failed', description: error, status: 'error', duration: 3000, position: 'top-right' }); return; }
+      fetchPeople();
       toast({ title: 'Lead created', status: 'success', duration: 2000, position: 'top-right' });
     }
     formModal.onClose();
