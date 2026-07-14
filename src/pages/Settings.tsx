@@ -132,6 +132,10 @@ export function Settings() {
   const [savingSettings, setSavingSettings] = useState(false);
   const [locForm, setLocForm] = useState({ currency: 'USD', tax_rate: '0', exchange_rate: '1' });
 
+  // Demo seed
+  const [seedingUser, setSeedingUser] = useState(false);
+  const [seedingData, setSeedingData] = useState(false);
+
   // Roles
   const [roles, setRoles] = useState<RoleDef[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
@@ -347,6 +351,35 @@ export function Settings() {
   const handleDeleteRole = async () => { if (!deleteRoleId) return; await supabase.from('roles').delete().eq('id', deleteRoleId).eq('user_id', session!.user.id); toast({ title: 'Role deleted', status: 'success', duration: 1800, position: 'top-right' }); confirmRoleDel.onClose(); setDeleteRoleId(null); loadRoles(); };
   const togglePerm = (key: string) => setRoleForm((prev) => ({ ...prev, permissions: { ...prev.permissions, [key]: !prev.permissions[key] } }));
 
+  // Demo seed handlers
+  const handleSeedUser = async () => {
+    setSeedingUser(true);
+    const { data, error } = await supabase.functions.invoke('seed-demo-user');
+    setSeedingUser(false);
+    if (error) {
+      toast({ title: 'Seed user failed', description: error.message, status: 'error', duration: 4000, position: 'top-right' });
+    } else if (data?.error) {
+      toast({ title: 'Seed user failed', description: data.error, status: 'error', duration: 4000, position: 'top-right' });
+    } else {
+      toast({ title: 'Demo user ready', description: `${data?.email} seeded successfully.`, status: 'success', duration: 3000, position: 'top-right' });
+      loadUsers();
+    }
+  };
+
+  const handleSeedData = async () => {
+    setSeedingData(true);
+    const { data, error } = await supabase.functions.invoke('seed-demo-data');
+    setSeedingData(false);
+    if (error) {
+      toast({ title: 'Seed data failed', description: error.message, status: 'error', duration: 4000, position: 'top-right' });
+    } else if (data?.error) {
+      toast({ title: 'Seed data failed', description: data.error, status: 'error', duration: 4000, position: 'top-right' });
+    } else {
+      const msg = data?.message ?? `Seeded ${data?.count ?? ''} records.`;
+      toast({ title: 'Demo data ready', description: msg, status: 'success', duration: 3000, position: 'top-right' });
+    }
+  };
+
   const TABS = ['Profile', 'Users', 'Roles', 'Custom Fields', 'Lead Scoring', 'Localization & Tax', 'Integrations', 'API Sync', 'Notifications', 'API Keys', 'Audit Logs'];
 
   return (
@@ -377,13 +410,41 @@ export function Settings() {
                 </Grid>
                 <Button mt="18px" size="sm" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" isLoading={savingProfile} onClick={saveProfile}>Save changes</Button>
               </Card>
-              <Card p="20px">
-                <Text fontWeight="700" fontSize="13px" mb="14px">Security</Text>
-                <Flex direction="column" gap="12px">
-                  <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px"><Icon as={KeyIcon} boxSize="16px" color="brand.500" /><Box flex="1"><Text fontSize="12px" fontWeight="600">Two-factor auth</Text><Text fontSize="10px" color="app.faint">Protect your account with 2FA</Text></Box><StatusBadge status="Approved" /></Flex>
-                  <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px"><Icon as={ZapIcon} boxSize="16px" color="#2d9c79" /><Box flex="1"><Text fontSize="12px" fontWeight="600">Active sessions</Text><Text fontSize="10px" color="app.faint">1 device · this browser</Text></Box></Flex>
-                </Flex>
-              </Card>
+              <Flex direction="column" gap="14px">
+                <Card p="20px">
+                  <Text fontWeight="700" fontSize="13px" mb="14px">Security</Text>
+                  <Flex direction="column" gap="12px">
+                    <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px"><Icon as={KeyIcon} boxSize="16px" color="brand.500" /><Box flex="1"><Text fontSize="12px" fontWeight="600">Two-factor auth</Text><Text fontSize="10px" color="app.faint">Protect your account with 2FA</Text></Box><StatusBadge status="Approved" /></Flex>
+                    <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px"><Icon as={ZapIcon} boxSize="16px" color="#2d9c79" /><Box flex="1"><Text fontSize="12px" fontWeight="600">Active sessions</Text><Text fontSize="10px" color="app.faint">1 device · this browser</Text></Box></Flex>
+                  </Flex>
+                </Card>
+                <Card p="20px">
+                  <Text fontWeight="700" fontSize="13px" mb="6px">Demo Data</Text>
+                  <Text fontSize="11px" color="app.subtle" mb="14px">Seed the demo user account and sample CRM data via Edge Functions.</Text>
+                  <Flex direction="column" gap="10px">
+                    <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Icon as={UsersIcon} boxSize="16px" color="brand.500" />
+                      <Box flex="1">
+                        <Text fontSize="12px" fontWeight="600">Demo user</Text>
+                        <Text fontSize="10px" color="app.faint">demo@1cngcrm.com · Demo1234!</Text>
+                      </Box>
+                      <Button size="xs" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="7px" fontSize="11px" isLoading={seedingUser} loadingText="Seeding" onClick={handleSeedUser}>
+                        Seed
+                      </Button>
+                    </Flex>
+                    <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Icon as={DatabaseIcon} boxSize="16px" color="#2d9c79" />
+                      <Box flex="1">
+                        <Text fontSize="12px" fontWeight="600">Demo CRM data</Text>
+                        <Text fontSize="10px" color="app.faint">People, leads, deals, tasks &amp; more</Text>
+                      </Box>
+                      <Button size="xs" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="7px" fontSize="11px" isLoading={seedingData} loadingText="Seeding" onClick={handleSeedData}>
+                        Seed
+                      </Button>
+                    </Flex>
+                  </Flex>
+                </Card>
+              </Flex>
             </Grid>
           </TabPanel>
 

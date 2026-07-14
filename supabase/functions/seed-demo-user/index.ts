@@ -31,19 +31,32 @@ Deno.serve(async (req: Request) => {
     const password = "Demo1234!";
     const fullName = "Renee Walker";
 
-    // Check if user already exists
-    const { data: existing } = await admin.auth.admin.listUsers();
-    const found = existing.users.find((u) => u.email === email);
+    // Search by email using the filter param to avoid loading all users
+    const { data: listData, error: listErr } = await admin.auth.admin.listUsers({ perPage: 1000 });
+    if (listErr) {
+      return new Response(
+        JSON.stringify({ error: listErr.message }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const found = (listData?.users ?? []).find((u) => u.email === email);
 
     let userId: string;
 
     if (found) {
-      // Update password to ensure it's correct
-      await admin.auth.admin.updateUserById(found.id, {
+      // Update password to ensure it's correct, and confirm email
+      const { error: updateErr } = await admin.auth.admin.updateUserById(found.id, {
         password,
         email_confirm: true,
         user_metadata: { full_name: fullName, avatar_color: "#ffdccb" }
       });
+      if (updateErr) {
+        return new Response(
+          JSON.stringify({ error: updateErr.message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
       userId = found.id;
     } else {
       const { data: created, error: createErr } = await admin.auth.admin.createUser({
@@ -62,7 +75,7 @@ Deno.serve(async (req: Request) => {
     }
 
     // Ensure profile row with sales_manager role
-    await admin.from("profiles").upsert({
+    const { error: profileErr } = await admin.from("profiles").upsert({
       id: userId,
       email,
       full_name: fullName,
@@ -70,25 +83,22 @@ Deno.serve(async (req: Request) => {
       avatar_color: "#ffdccb"
     }, { onConflict: "id" });
 
+    if (profileErr) {
+      return new Response(
+        JSON.stringify({ error: profileErr.message }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     return new Response(
       JSON.stringify({ ok: true, email, userId }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
-  }catch (err) {
-  console.error("SEED DEMO USER ERROR:", err);
-
-  return new Response(
-    JSON.stringify({
-      error: err instanceof Error ? err.message : String(err),
-      detail: err,
-    }),
-    {
-      status: 500,
-      headers: {
-        ...corsHeaders,
-        "Content-Type": "application/json",
-      },
-    }
-  );
-}
+  } catch (err) {
+    console.error("SEED DEMO USER ERROR:", err);
+    return new Response(
+      JSON.stringify({ error: err instanceof Error ? err.message : String(err) }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
+  }
 });
