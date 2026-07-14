@@ -196,17 +196,7 @@ CREATE INDEX IF NOT EXISTS app_settings_user_key_idx ON public.app_settings(user
 -- ============================================================
 -- profiles RLS: allow managers/admins to list all team members
 -- ============================================================
--- The existing select_own_profile only allows each user to see their own row.
--- The User Management tab needs sales_manager, admin, and super_admin to see
--- all profiles.  We add a second SELECT policy; Supabase RLS ORs all policies.
-DROP POLICY IF EXISTS "select_all_profiles_for_managers" ON public.profiles;
-CREATE POLICY "select_all_profiles_for_managers"
-  ON public.profiles FOR SELECT
-  TO authenticated
-  USING (
-    EXISTS (
-      SELECT 1 FROM public.profiles p
-      WHERE p.id = auth.uid()
-        AND p.role IN ('super_admin', 'admin', 'sales_manager')
-    )
-  );
+-- NOTE: The actual implementation is in migration 009_fix_profiles_rls.sql
+-- which uses a SECURITY DEFINER helper function to avoid the recursive
+-- policy issue (querying profiles inside a policy on profiles = 500 error).
+-- Nothing to do here — kept for documentation only.
