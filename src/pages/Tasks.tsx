@@ -511,12 +511,11 @@ export function Tasks() {
     return (
       <Box>
         <Flex align="center" gap="0" h="56px" borderBottom="1px solid #f5f6fa" _hover={{ bg: '#fafbfd' }} cursor="pointer" transition="background .12s ease" onClick={() => openDetail(task)}>
-          {/* Checkbox + done */}
-          <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" onClick={(e) => e.stopPropagation()}>
-            <Checkbox isChecked={selectedIds.has(task.id)} onChange={() => toggleSelect(task.id)} size="sm" sx={checkboxStyle} />
-          </Box>
-          <Box w="32px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" onClick={(e) => e.stopPropagation()}>
-            <Checkbox isChecked={task.done} onChange={() => toggleDone(task.id)} size="sm" sx={checkboxStyle} />
+          {/* Checkbox: select on hover/selected, done otherwise */}
+          <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" onClick={(e) => e.stopPropagation()}
+            sx={{ '& .select-cb': { display: 'none' }, '& .done-cb': { display: 'flex' }, '&:hover .select-cb': { display: 'flex' }, '&:hover .done-cb': { display: 'none' }, ...(selectedIds.has(task.id) && { '& .select-cb': { display: 'flex' }, '& .done-cb': { display: 'none' } }) }}>
+            <Box className="select-cb"><Checkbox isChecked={selectedIds.has(task.id)} onChange={() => toggleSelect(task.id)} size="sm" sx={checkboxStyle} /></Box>
+            <Box className="done-cb"><Checkbox isChecked={task.done} onChange={() => toggleDone(task.id)} size="sm" sx={checkboxStyle} /></Box>
           </Box>
           {/* Expand chevron */}
           <Box w="28px" flexShrink={0} display="flex" alignItems="center" justifyContent="center">
