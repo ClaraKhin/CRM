@@ -27,6 +27,8 @@ import { FileTextIcon, MailIcon, PhoneIcon, PlusIcon, TrendingUpIcon } from 'luc
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card } from '../components/ui/Card';
 import { FormModal } from '../components/ui/FormModal';
+import { ActivityTimeline } from '../components/crm/ActivityTimeline';
+import { DocumentManager } from '../components/crm/DocumentManager';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -449,6 +451,17 @@ export function Pipeline() {
                     <Box><Text fontSize="10px" color="app.faint">Created</Text><Text fontSize="12px" fontWeight="600">{new Date(detailDeal.created_at ?? '').toLocaleDateString()}</Text></Box>
                   </Grid>
                   {detailDeal.notes && <Box><Text fontSize="10px" color="app.faint" mb="4px">NOTES</Text><Text fontSize="12px" color="app.subtle" lineHeight="1.5">{detailDeal.notes}</Text></Box>}
+
+                  <Box pt="4px">
+                    <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="9px">ACTIVITY TIMELINE</Text>
+                    <ActivityTimeline entityType="deal" entityId={detailDeal.id} />
+                  </Box>
+
+                  <Box pt="4px">
+                    <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="9px">DOCUMENTS</Text>
+                    <DocumentManager entityType="deal" entityId={detailDeal.id} />
+                  </Box>
+
                   <Flex gap="8px" pt="4px">
                     <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailDeal); }}>Edit deal</Button>
                     <Button size="sm" flex="1" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<FileTextIcon size={13} />} onClick={() => { detailModal.onClose(); generateQuote(detailDeal); }}>Generate quote</Button>

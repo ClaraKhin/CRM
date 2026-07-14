@@ -34,7 +34,6 @@ import {
 import {
   BuildingIcon,
   DownloadIcon,
-  FileTextIcon,
   GlobeIcon,
   MailIcon,
   MapPinIcon,
@@ -53,6 +52,8 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormModal } from '../components/ui/FormModal';
 import { Pagination } from '../components/ui/Pagination';
+import { ActivityTimeline } from '../components/crm/ActivityTimeline';
+import { DocumentManager } from '../components/crm/DocumentManager';
 import { useCrudList, useCrudMutation, exportToCsv } from '../lib/crud';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
@@ -90,7 +91,6 @@ export function Customers() {
   const [editing, setEditing] = useState<Customer | null>(null);
   const [selected, setSelected] = useState<Customer | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [activities, setActivities] = useState<{ id: string; type: string; subject: string; description: string; created_at: string }[]>([]);
   const [customerDeals, setCustomerDeals] = useState<{ id: string; title: string; value: number; stage: string; project_volume: number; deal_type: string; sale_type: string; quotation_status: string; close_date: string | null }[]>([]);
 
   // Form state
@@ -134,12 +134,8 @@ export function Customers() {
     setSelected(customer);
     detailModal.onOpen();
     if (session?.user && customer.person_id) {
-      const [aData, dData] = await Promise.all([
-        supabase.from('activities').select('*').eq('user_id', session.user.id).eq('person_id', customer.person_id).order('created_at', { ascending: false }).limit(10),
-        supabase.from('deals').select('*').eq('user_id', session.user.id).eq('customer_id', customer.id).order('created_at', { ascending: false })
-      ]);
-      setActivities((aData.data ?? []) as typeof activities);
-      setCustomerDeals((dData.data ?? []) as typeof customerDeals);
+      const { data: dData } = await supabase.from('deals').select('*').eq('user_id', session.user.id).eq('customer_id', customer.id).order('created_at', { ascending: false });
+      setCustomerDeals((dData ?? []) as typeof customerDeals);
     }
   };
 
@@ -420,29 +416,10 @@ export function Customers() {
                 </Box>
 
                 <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mt="20px" mb="9px">ACTIVITY TIMELINE</Text>
-                <Box>
-                  {activities.length === 0 ? (
-                    <Text fontSize="12px" color="app.faint">No activities recorded yet.</Text>
-                  ) : activities.map((item, i) => (
-                    <Flex key={item.id} gap="11px" pb="14px">
-                      <Flex direction="column" align="center">
-                        <Box w="9px" h="9px" borderRadius="full" bg="#e9683f" />
-                        {i < activities.length - 1 && <Box w="1px" flex="1" bg="app.border" mt="2px" />}
-                      </Flex>
-                      <Box>
-                        <Text fontSize="12px" fontWeight="600">{item.subject}</Text>
-                        <Text fontSize="10px" color="app.subtle">{item.type} · {new Date(item.created_at).toLocaleDateString()}</Text>
-                      </Box>
-                    </Flex>
-                  ))}
-                </Box>
+                <ActivityTimeline entityType="customer" entityId={selected.id} />
 
-                <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mt="6px" mb="9px">DOCUMENTS</Text>
-                <Flex align="center" gap="10px" p="12px" bg="app.surfaceAlt" borderRadius="10px">
-                  <Icon as={FileTextIcon} boxSize="16px" color="app.subtle" />
-                  <Text fontSize="12px" flex="1">No documents uploaded</Text>
-                  <Button size="xs" variant="ghost" onClick={() => toast({ title: 'Upload started', status: 'info', duration: 1500, position: 'top-right' })}>Upload</Button>
-                </Flex>
+                <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mt="20px" mb="9px">DOCUMENTS</Text>
+                <DocumentManager entityType="customer" entityId={selected.id} />
                 <Flex gap="8px" pt="4px">
                   <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(selected); }}>Edit customer</Button>
                   <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(selected.id); confirmDel.onOpen(); }}>Delete</Button>
