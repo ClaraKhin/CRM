@@ -725,8 +725,8 @@ export function Tasks() {
         ) : view === 'list' ? (
           <Box px="20px" py="0">
             <Flex h="40px" align="center" borderBottom="1px solid #f0f2f6">
-              <Box w="40px" flexShrink={0} display="flex" alignItems="center"><Checkbox isChecked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} size="sm" sx={checkboxStyle} /></Box>
-              <Box w="32px" /><Box w="28px" /><Box w="3px" mr="12px" />
+              <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center"><Checkbox isChecked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} size="sm" sx={checkboxStyle} /></Box>
+              <Box w="28px" /><Box w="3px" mr="12px" />
               <Text fontSize="11px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">TASK</Text>
             </Flex>
             {filtered.map((task) => <TaskRow key={task.id} task={task} />)}
