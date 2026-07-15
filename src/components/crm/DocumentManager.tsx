@@ -8,7 +8,7 @@ type Doc = { id: string; name: string; file_url: string; file_type: string; file
 
 export function DocumentManager({ entityType, entityId }: { entityType: 'deal' | 'customer' | 'lead'; entityId: string }) {
   const toast = useToast();
-  const { session } = useAuth();
+  const { session, profile } = useAuth();
   const [docs, setDocs] = useState<Doc[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
@@ -36,7 +36,8 @@ export function DocumentManager({ entityType, entityId }: { entityType: 'deal' |
     const fileUrl = upErr ? `local:${file.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
     const { data: docData } = await supabase.from('documents').insert({
       user_id: session.user.id, entity_type: entityType, entity_id: entityId, name: file.name,
-      file_url: fileUrl, file_type: file.type || 'file', file_size: file.size
+      file_url: fileUrl, file_type: file.type || 'file', file_size: file.size,
+      uploaded_by_name: profile?.full_name ?? '', uploaded_by_email: profile?.email ?? '',
     }).select().maybeSingle();
     if (docData) setDocs((prev) => [docData as Doc, ...prev]);
     setUploading(false);

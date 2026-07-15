@@ -110,12 +110,17 @@ export function RoleManagement() {
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const { data } = await supabase.from('roles').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('roles').select('*').order('created_at', { ascending: false });
+    if (error) {
+      toast({ title: 'Failed to load roles', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      setLoading(false);
+      return;
+    }
     const roleList = (data ?? []) as Role[];
     setRoles(roleList);
     if (roleList.length > 0 && !selectedRoleId) setSelectedRoleId(roleList[0].id);
     setLoading(false);
-  }, [session, selectedRoleId]);
+  }, [session, selectedRoleId, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -123,10 +128,17 @@ export function RoleManagement() {
   const permCount = selectedRole ? Object.values(selectedRole.permissions).filter(Boolean).length : 0;
 
   const togglePerm = async (key: string) => {
-    if (!selectedRole) return;
+    if (!selectedRole || !session?.user) return;
     const newPerms = { ...selectedRole.permissions, [key]: !selectedRole.permissions[key] };
     setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: newPerms } : r));
-    await supabase.from('roles').update({ permissions: newPerms }).eq('id', selectedRole.id).eq('user_id', session!.user.id);
+    const { error } = await supabase.from('roles').update({ permissions: newPerms, updated_at: new Date().toISOString() }).eq('id', selectedRole.id);
+    if (error) {
+      toast({ title: 'Failed to update permission', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: selectedRole.permissions } : r));
+      load();
+      return;
+    }
+    toast({ title: 'Permission updated', status: 'success', duration: 1200, position: 'top-right' });
   };
 
   const openCreate = () => {
@@ -155,13 +167,13 @@ export function RoleManagement() {
     if (!form.name.trim()) { toast({ title: 'Role name is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
     setSaving(true);
     if (editingId) {
-      const { error } = await supabase.from('roles').update({ name: form.name, description: form.description, permissions: permDraft }).eq('id', editingId).eq('user_id', session!.user.id);
-      if (error) toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      else toast({ title: 'Role updated', status: 'success', duration: 2000, position: 'top-right' });
+      const { error } = await supabase.from('roles').update({ name: form.name, description: form.description, permissions: permDraft, updated_at: new Date().toISOString() }).eq('id', editingId);
+      if (error) { toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' }); setSaving(false); return; }
+      toast({ title: 'Role updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
-      const { error } = await supabase.from('roles').insert({ user_id: session!.user.id, name: form.name, description: form.description, permissions: permDraft, is_default: false });
-      if (error) toast({ title: 'Create failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      else toast({ title: 'Role created', status: 'success', duration: 2000, position: 'top-right' });
+      const { error } = await supabase.from('roles').insert({ name: form.name, description: form.description, permissions: permDraft, is_default: false });
+      if (error) { toast({ title: 'Create failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' }); setSaving(false); return; }
+      toast({ title: 'Role created', status: 'success', duration: 2000, position: 'top-right' });
     }
     setSaving(false);
     roleModal.onClose();
@@ -170,7 +182,8 @@ export function RoleManagement() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from('roles').delete().eq('id', deleteId).eq('user_id', session!.user.id);
+    const { error } = await supabase.from('roles').delete().eq('id', deleteId);
+    if (error) { toast({ title: 'Delete failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' }); confirmDel.onClose(); return; }
     toast({ title: 'Role deleted', status: 'success', duration: 1800, position: 'top-right' });
     if (selectedRoleId === deleteId) setSelectedRoleId(null);
     confirmDel.onClose();

@@ -10,11 +10,11 @@ import {
   Grid,
   HStack,
   Icon,
-  IconButton,
   Input,
+  InputGroup,
+  InputRightElement,
   Select,
   Spinner,
-  Stack,
   Table,
   TableContainer,
   Tbody,
@@ -25,9 +25,9 @@ import {
   Tr,
   useDisclosure,
   useToast } from '@chakra-ui/react';
-import { MailIcon, MoreHorizontalIcon, PlusIcon, Trash2Icon, UserCogIcon, UsersIcon } from 'lucide-react';
+import { EyeIcon, EyeOffIcon, PlusIcon, Trash2Icon, UsersIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
-import { Card, CardHeader } from '../components/ui/Card';
+import { Card } from '../components/ui/Card';
 import { EmptyState } from '../components/ui/EmptyState';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
@@ -58,15 +58,21 @@ export function UserManagement() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ email: '', full_name: '', role: 'sales_executive' as UserRole, avatar_color: '#ffdccb' });
+  const [showPassword, setShowPassword] = useState(false);
+  const [form, setForm] = useState({ email: '', full_name: '', role: 'sales_executive' as UserRole, password: '', avatar_color: '#ffdccb' });
 
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    const { data, error } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+    if (error) {
+      toast({ title: 'Failed to load users', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      setLoading(false);
+      return;
+    }
     setUsers((data ?? []) as Profile[]);
     setLoading(false);
-  }, [session]);
+  }, [session, toast]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -76,27 +82,80 @@ export function UserManagement() {
 
   const openCreate = () => {
     setEditingId(null);
-    setForm({ email: '', full_name: '', role: 'sales_executive', avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)] });
+    setForm({ email: '', full_name: '', role: 'sales_executive', password: '', avatar_color: AVATAR_COLORS[Math.floor(Math.random() * AVATAR_COLORS.length)] });
     userModal.onOpen();
   };
 
   const openEdit = (u: Profile) => {
     setEditingId(u.id);
-    setForm({ email: u.email, full_name: u.full_name, role: u.role, avatar_color: u.avatar_color ?? '#ffdccb' });
+    setForm({ email: u.email, full_name: u.full_name, role: u.role, password: '', avatar_color: u.avatar_color ?? '#ffdccb' });
     userModal.onOpen();
   };
 
   const handleSubmit = async () => {
-    if (!form.email.trim() || !form.full_name.trim()) { toast({ title: 'Email and name are required', status: 'error', duration: 2000, position: 'top-right' }); return; }
+    if (!form.email.trim() || !form.full_name.trim()) {
+      toast({ title: 'Email and name are required', status: 'error', duration: 2000, position: 'top-right' });
+      return;
+    }
     setSaving(true);
+
     if (editingId) {
-      const { error } = await supabase.from('profiles').update({ full_name: form.full_name, role: form.role, avatar_color: form.avatar_color }).eq('id', editingId);
-      if (error) toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      else toast({ title: 'User updated', status: 'success', duration: 2000, position: 'top-right' });
+      // Update existing user's profile via edge function (can update role for other users)
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ action: 'update_role', userId: editingId, role: form.role, fullName: form.full_name, avatarColor: form.avatar_color }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          toast({ title: 'Update failed', description: err.error ?? 'Unknown error', status: 'error', duration: 3000, position: 'top-right' });
+          setSaving(false);
+          return;
+        }
+        toast({ title: 'User updated', status: 'success', duration: 2000, position: 'top-right' });
+      } catch {
+        toast({ title: 'Update failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+        setSaving(false);
+        return;
+      }
     } else {
-      const { error } = await supabase.from('profiles').insert({ email: form.email, full_name: form.full_name, role: form.role, avatar_color: form.avatar_color });
-      if (error) toast({ title: 'Create failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      else toast({ title: 'User created', status: 'success', duration: 2000, position: 'top-right' });
+      // Create new auth user via edge function
+      if (!form.password.trim() || form.password.length < 6) {
+        toast({ title: 'Password must be at least 6 characters', status: 'error', duration: 2000, position: 'top-right' });
+        setSaving(false);
+        return;
+      }
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+      if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ action: 'create', email: form.email, password: form.password, fullName: form.full_name, role: form.role, avatarColor: form.avatar_color }),
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          toast({ title: 'Create failed', description: err.error ?? 'Unknown error', status: 'error', duration: 3000, position: 'top-right' });
+          setSaving(false);
+          return;
+        }
+        toast({ title: 'User created', status: 'success', duration: 2000, position: 'top-right' });
+      } catch {
+        toast({ title: 'Create failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+        setSaving(false);
+        return;
+      }
     }
     setSaving(false);
     userModal.onClose();
@@ -105,8 +164,28 @@ export function UserManagement() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    await supabase.from('profiles').delete().eq('id', deleteId);
-    toast({ title: 'User deleted', status: 'success', duration: 1800, position: 'top-right' });
+    const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+    try {
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ action: 'delete', userId: deleteId, requestedBy: session!.user.id }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast({ title: 'Delete failed', description: err.error ?? 'Unknown error', status: 'error', duration: 3000, position: 'top-right' });
+        confirmDel.onClose();
+        return;
+      }
+      toast({ title: 'User deleted', status: 'success', duration: 1800, position: 'top-right' });
+    } catch {
+      toast({ title: 'Delete failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+      confirmDel.onClose();
+      return;
+    }
     confirmDel.onClose();
     setDeleteId(null);
     load();
@@ -181,7 +260,7 @@ export function UserManagement() {
         )}
       </Card>
 
-      <FormModal isOpen={userModal.isOpen} onClose={userModal.onClose} title={editingId ? 'Edit user' : 'Add user'} subtitle={editingId ? 'Update user details' : 'Create a new team member'} loading={saving} onSubmit={handleSubmit} submitLabel={editingId ? 'Update' : 'Create'}>
+      <FormModal isOpen={userModal.isOpen} onClose={userModal.onClose} title={editingId ? 'Edit user' : 'Add user'} subtitle={editingId ? 'Update user details' : 'Create a new team member account'} loading={saving} onSubmit={handleSubmit} submitLabel={editingId ? 'Update' : 'Create'}>
         <FormControl>
           <FormLabel fontSize="12px">Full name</FormLabel>
           <Input value={form.full_name} onChange={(e) => setForm({ ...form, full_name: e.target.value })} placeholder="Renee Walker" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
@@ -190,6 +269,15 @@ export function UserManagement() {
           <FormLabel fontSize="12px">Email</FormLabel>
           <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@company.com" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" isDisabled={!!editingId} />
         </FormControl>
+        {!editingId && (
+          <FormControl>
+            <FormLabel fontSize="12px">Password</FormLabel>
+            <InputGroup>
+              <Input type={showPassword ? 'text' : 'password'} value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Min 6 characters" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" />
+              <InputRightElement w="32px" h="32px"><Icon as={showPassword ? EyeOffIcon : EyeIcon} boxSize="14px" color="app.faint" cursor="pointer" onClick={() => setShowPassword(!showPassword)} /></InputRightElement>
+            </InputGroup>
+          </FormControl>
+        )}
         <FormControl>
           <FormLabel fontSize="12px">Role</FormLabel>
           <Select value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value as UserRole })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
@@ -206,7 +294,7 @@ export function UserManagement() {
         </FormControl>
       </FormModal>
 
-      <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete user" message="Are you sure you want to delete this user?" confirmLabel="Delete" danger onConfirm={handleDelete} />
+      <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete user" message="This will permanently delete the user account and remove their access. This cannot be undone." confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>
   );
 }
