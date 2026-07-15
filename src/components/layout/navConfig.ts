@@ -5,10 +5,14 @@ import {
   ClipboardListIcon,
   ContactRoundIcon,
   FileTextIcon,
+  GaugeIcon,
+  HistoryIcon,
   LayoutDashboardIcon,
   PackageIcon,
   ReceiptTextIcon,
+  ScrollTextIcon,
   Settings2Icon,
+  ShieldCheckIcon,
   UsersRoundIcon,
   WorkflowIcon,
   type LucideIcon } from
@@ -48,6 +52,12 @@ export const navItems: NavItem[] = [
   icon: ContactRoundIcon,
   section: 'Workspace'
 },
+{
+  label: 'Activity Timeline',
+  path: '/activity',
+  icon: HistoryIcon,
+  section: 'Workspace'
+},
 { label: 'Products', path: '/products', icon: PackageIcon, section: 'Sales' },
 { label: 'Quotes', path: '/quotes', icon: FileTextIcon, section: 'Sales' },
 {
@@ -80,6 +90,36 @@ export const navItems: NavItem[] = [
   path: '/automation',
   icon: WorkflowIcon,
   section: 'Intelligence'
+},
+{
+  label: 'Lead Scoring',
+  path: '/lead-scoring',
+  icon: GaugeIcon,
+  section: 'Manage'
+},
+{
+  label: 'User Management',
+  path: '/users',
+  icon: UsersRoundIcon,
+  section: 'Manage'
+},
+{
+  label: 'Role Management',
+  path: '/roles',
+  icon: ShieldCheckIcon,
+  section: 'Manage'
+},
+{
+  label: 'Documents',
+  path: '/documents',
+  icon: ScrollTextIcon,
+  section: 'Manage'
+},
+{
+  label: 'Audit Logs',
+  path: '/audit-logs',
+  icon: HistoryIcon,
+  section: 'Manage'
 },
 {
   label: 'Settings',

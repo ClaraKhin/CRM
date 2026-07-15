@@ -69,6 +69,7 @@ import { PageHeader } from '../components/ui/PageHeader';
 import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormModal } from '../components/ui/FormModal';
+import { Card } from '../components/ui/Card';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
@@ -102,19 +103,28 @@ type Task = {
   created_at: string;
 };
 
-const OWNERS = [
-  { id: 'o1', name: 'Renee Walker', initials: 'RW', color: '#ffdccb', textColor: '#8c5535' },
-  { id: 'o2', name: 'Marcus Chen', initials: 'MC', color: '#d8e7ff', textColor: '#2d4fa3' },
-  { id: 'o3', name: 'Priya Nair', initials: 'PN', color: '#eadbff', textColor: '#6b35a8' },
-  { id: 'o4', name: 'Diego Alvarez', initials: 'DA', color: '#c9f0e3', textColor: '#1a6b4a' }
-];
+type OwnerInfo = { id: string; name: string; color: string; textColor: string; initials: string };
+
+const FALLBACK_OWNERS: Record<string, { name: string; color: string; textColor: string }> = {
+  o1: { name: 'Renee Walker', color: '#ffdccb', textColor: '#8c5535' },
+  o2: { name: 'Marcus Chen', color: '#d8e7ff', textColor: '#2d4fa3' },
+  o3: { name: 'Priya Nair', color: '#eadbff', textColor: '#6b35a8' },
+  o4: { name: 'Diego Alvarez', color: '#c9f0e3', textColor: '#1a6b4a' },
+};
+
 const PRIORITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low'];
 const TASK_TYPES = ['To-Do', 'Meeting', 'Call', 'Email', 'Follow-up'];
 const RECURRING_OPTIONS = ['None', 'Daily', 'Weekly', 'Monthly'];
-const DEFAULT_STATUSES = ['Pending', 'In Progress', 'Done'];
-const STATUS_COLORS: Record<string, string> = { Pending: '#b5760f', 'In Progress': '#3355c9', Done: '#1c8a5c' };
-const STATUS_BG: Record<string, { light: string; dark: string }> = { Pending: { light: '#fef3e0', dark: '#4a3210' }, 'In Progress': { light: '#e8f0ff', dark: '#1a2350' }, Done: { light: '#e8f5ee', dark: '#143b2d' } };
-const STATUS_DOT: Record<string, string> = { Pending: '#f0a13c', 'In Progress': '#6c7aea', Done: '#2d9c79' };
+const DEFAULT_STATUSES = ['To Do', 'Pending', 'In Progress', 'On Hold', 'Cancelled', 'Done'];
+const STATUS_COLORS: Record<string, string> = {
+  'To Do': '#6b7488', Pending: '#b5760f', 'In Progress': '#3355c9', 'On Hold': '#8374d9', Cancelled: '#c23c3c', Done: '#1c8a5c',
+};
+const STATUS_BG: Record<string, string> = {
+  'To Do': '#f0f2f5', Pending: '#fef3e0', 'In Progress': '#e8f0ff', 'On Hold': '#efe7ff', Cancelled: '#fde8e8', Done: '#e8f5ee',
+};
+const STATUS_DOT: Record<string, string> = {
+  'To Do': '#6b7488', Pending: '#f0a13c', 'In Progress': '#6c7aea', 'On Hold': '#8374d9', Cancelled: '#c23c3c', Done: '#2d9c79',
+};
 
 const priorityColor: Record<string, string> = { Critical: '#c23c3c', High: '#e9683f', Medium: '#b5760f', Low: '#6b7488' };
 const priorityBg: Record<string, { light: string; dark: string }> = { Critical: { light: '#fde8e8', dark: '#4a1818' }, High: { light: '#fff2ec', dark: '#4a1e16' }, Medium: { light: '#fef3e0', dark: '#4a3210' }, Low: { light: '#f0f2f5', dark: '#2a2f3a' } };
@@ -131,7 +141,7 @@ const inputStyle = {
   fontSize: '13px',
   color: 'app.text',
   _placeholder: { color: 'app.faint' },
-  _focus: { borderColor: 'app.border', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }
+  _focus: { borderColor: 'app.subtle', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' },
 } as const;
 
 const selectStyle = {
@@ -142,7 +152,7 @@ const selectStyle = {
   borderColor: 'app.border',
   fontSize: '13px',
   color: 'app.subtle',
-  _focus: { borderColor: 'app.border', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }
+  _focus: { borderColor: 'app.subtle', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' },
 } as const;
 
 const labelStyle = { fontSize: '12px', fontWeight: '600' as const, color: 'app.subtle' };
@@ -189,14 +199,12 @@ function PriorityPill({ priority }: { priority: string }) {
 
 export function Tasks() {
   const toast = useToast();
-  const { session } = useAuth();
-  const dangerBg = useColorModeValue('#fde8e8', 'red.900');
-  const dangerHoverBg = useColorModeValue('#fbd0d0', 'red.800');
-  const dangerText = useColorModeValue('#c23c3c', 'red.300');
+  const { session, profile } = useAuth();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [subtasks, setSubtasks] = useState<Subtask[]>([]);
   const [comments, setComments] = useState<Comment[]>([]);
   const [customStatuses, setCustomStatuses] = useState<{ id: string; name: string; color: string; position: number }[]>([]);
+  const [profiles, setProfiles] = useState<{ id: string; full_name: string; avatar_color: string }[]>([]);
   const [leads, setLeads] = useState<{ id: string; person_id: string | null }[]>([]);
   const [people, setPeople] = useState<{ id: string; name: string; company: string }[]>([]);
   const [deals, setDeals] = useState<{ id: string; title: string }[]>([]);
@@ -228,14 +236,14 @@ export function Tasks() {
   const [editing, setEditing] = useState<Task | null>(null);
   const [detailTask, setDetailTask] = useState<Task | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [bulkStatusValue, setBulkStatusValue] = useState('Pending');
+  const [bulkStatusValue, setBulkStatusValue] = useState('To Do');
   const [saving, setSaving] = useState(false);
   const [newStatusName, setNewStatusName] = useState('');
   const [newStatusColor, setNewStatusColor] = useState('#6b7488');
   const [form, setForm] = useState({
-    title: '', description: '', priority: 'Medium', status: 'Pending', due_date: '', start_date: '',
-    task_type: 'To-Do', owner_id: 'o1', estimated_hours: 0, recurring: 'None', reminder: true,
-    lead_id: '', deal_id: '', customer_id: '', quote_id: '', invoice_id: ''
+    title: '', description: '', priority: 'Medium', status: 'To Do', due_date: '', start_date: '',
+    task_type: 'To-Do', owner_id: '', estimated_hours: 0, recurring: 'None', reminder: true,
+    lead_id: '', deal_id: '', customer_id: '', quote_id: '', invoice_id: '',
   });
 
   const allStatuses = useMemo(() => {
@@ -245,25 +253,55 @@ export function Tasks() {
     return merged;
   }, [customStatuses]);
 
+  const owners = useMemo<OwnerInfo[]>(() => {
+    const list = profiles.map((p) => ({
+      id: p.id,
+      name: p.full_name,
+      color: p.avatar_color ?? '#d8e7ff',
+      textColor: '#46506a',
+      initials: p.full_name.split(' ').map((w) => w[0]).slice(0, 2).join(''),
+    }));
+    if (profile && !list.find((o) => o.id === profile.id)) {
+      list.push({
+        id: profile.id,
+        name: profile.full_name,
+        color: profile.avatar_color ?? '#ffdccb',
+        textColor: '#46506a',
+        initials: profile.full_name.split(' ').map((w) => w[0]).slice(0, 2).join(''),
+      });
+    }
+    return list;
+  }, [profiles, profile]);
+
+  const ownerById = useCallback((id: string): OwnerInfo => {
+    const fromProfiles = owners.find((o) => o.id === id);
+    if (fromProfiles) return fromProfiles;
+    const fallback = FALLBACK_OWNERS[id];
+    if (fallback) return { id, ...fallback, initials: fallback.name.split(' ').map((w: string) => w[0]).slice(0, 2).join('') };
+    return { id, name: 'Unassigned', color: 'app.surfaceAlt', textColor: 'app.subtle', initials: '?' };
+  }, [owners]);
+
   const load = useCallback(async () => {
     if (!session?.user) return;
     setLoading(true);
-    const [tRes, sRes, cRes, csRes, lRes, pRes, dRes, custRes, qRes, invRes] = await Promise.all([
+    const [tRes, sRes, cRes, csRes, profRes, lRes, pRes, dRes, custRes, qRes, invRes] = await Promise.all([
       supabase.from('tasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
       supabase.from('subtasks').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true }),
       supabase.from('task_comments').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true }),
       supabase.from('task_statuses').select('*').eq('user_id', session.user.id).order('position', { ascending: true }),
+      supabase.from('profiles').select('id, full_name, avatar_color'),
       supabase.from('leads').select('id, person_id').eq('user_id', session.user.id),
       supabase.from('people').select('id, name, company').eq('user_id', session.user.id),
       supabase.from('deals').select('id, title').eq('user_id', session.user.id),
       supabase.from('customers').select('id').eq('user_id', session.user.id),
       supabase.from('quotes').select('id, number').eq('user_id', session.user.id),
-      supabase.from('invoices').select('id, number').eq('user_id', session.user.id)
+      supabase.from('invoices').select('id, number').eq('user_id', session.user.id),
     ]);
     setTasks((tRes.data ?? []) as Task[]);
     setSubtasks((sRes.data ?? []) as Subtask[]);
     setComments((cRes.data ?? []) as Comment[]);
     setCustomStatuses((csRes.data ?? []) as { id: string; name: string; color: string; position: number }[]);
+    setProfiles((profRes.data ?? []) as { id: string; full_name: string; avatar_color: string }[]);
     setLeads((lRes.data ?? []) as { id: string; person_id: string | null }[]);
     setPeople((pRes.data ?? []) as { id: string; name: string; company: string }[]);
     setDeals((dRes.data ?? []) as { id: string; title: string }[]);
@@ -315,14 +353,18 @@ export function Tasks() {
   const stats = useMemo(() => {
     const active = tasks.filter((t) => !t.archived);
     const done = active.filter((t) => t.done);
-    const pending = active.filter((t) => !t.done && t.status === 'Pending');
+    const pending = active.filter((t) => !t.done && t.status === 'To Do');
     const inProgress = active.filter((t) => t.status === 'In Progress');
     const overdue = active.filter((t) => !t.done && t.due_date && new Date(t.due_date) < new Date(new Date().toDateString()));
     const dueSoon = active.filter((t) => !t.done && t.due_date && new Date(t.due_date) <= new Date(Date.now() + 86400000) && new Date(t.due_date) >= new Date(new Date().toDateString()));
     const completionRate = active.length > 0 ? Math.round((done.length / active.length) * 100) : 0;
-    const byOwner = OWNERS.map((o) => ({ ...o, count: active.filter((t) => t.owner_id === o.id).length }));
+    const allOwnerIds = new Set(active.map((t) => t.owner_id));
+    const byOwner = Array.from(allOwnerIds).map((id) => {
+      const info = ownerById(id);
+      return { ...info, count: active.filter((t) => t.owner_id === id).length };
+    });
     return { total: active.length, done: done.length, pending: pending.length, inProgress: inProgress.length, overdue: overdue.length, dueSoon: dueSoon.length, completionRate, byOwner };
-  }, [tasks]);
+  }, [tasks, ownerById]);
 
   const toggleExpand = (id: string) => setExpandedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
   const toggleSelect = (id: string) => setSelectedIds((prev) => { const n = new Set(prev); if (n.has(id)) n.delete(id); else n.add(id); return n; });
@@ -333,8 +375,8 @@ export function Tasks() {
     const task = tasks.find((t) => t.id === id);
     if (!task) return;
     const newDone = !task.done;
-    updateTaskState(id, { done: newDone, status: newDone ? 'Done' : 'Pending' });
-    await supabase.from('tasks').update({ done: newDone, status: newDone ? 'Done' : 'Pending' }).eq('id', id).eq('user_id', session!.user.id);
+    updateTaskState(id, { done: newDone, status: newDone ? 'Done' : 'To Do' });
+    await supabase.from('tasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', id).eq('user_id', session!.user.id);
   };
 
   const changeStatus = async (id: string, status: string) => {
@@ -346,8 +388,8 @@ export function Tasks() {
     const st = subtasks.find((s) => s.id === subId);
     if (!st) return;
     const newDone = !st.done;
-    setSubtasks((prev) => prev.map((s) => s.id === subId ? { ...s, done: newDone, status: newDone ? 'Done' : 'Pending' } : s));
-    await supabase.from('subtasks').update({ done: newDone, status: newDone ? 'Done' : 'Pending' }).eq('id', subId).eq('user_id', session!.user.id);
+    setSubtasks((prev) => prev.map((s) => s.id === subId ? { ...s, done: newDone, status: newDone ? 'Done' : 'To Do' } : s));
+    await supabase.from('subtasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', subId).eq('user_id', session!.user.id);
     const parent = tasks.find((t) => t.id === st.parent_id);
     if (parent) {
       const siblings = subtasks.filter((s) => s.parent_id === st.parent_id);
@@ -360,7 +402,7 @@ export function Tasks() {
 
   const addSubtask = async () => {
     if (!newSubtaskTitle.trim() || !newSubtaskParent) return;
-    const { data } = await supabase.from('subtasks').insert({ user_id: session!.user.id, parent_id: newSubtaskParent, title: newSubtaskTitle.trim(), status: 'Pending' }).select().maybeSingle();
+    const { data } = await supabase.from('subtasks').insert({ user_id: session!.user.id, parent_id: newSubtaskParent, title: newSubtaskTitle.trim(), status: 'To Do' }).select().maybeSingle();
     if (data) {
       setSubtasks((prev) => [...prev, data as Subtask]);
       const parent = tasks.find((t) => t.id === newSubtaskParent);
@@ -397,7 +439,8 @@ export function Tasks() {
 
   const openCreate = () => {
     setEditing(null);
-    setForm({ title: '', description: '', priority: 'Medium', status: 'Pending', due_date: '', start_date: '', task_type: 'To-Do', owner_id: 'o1', estimated_hours: 0, recurring: 'None', reminder: true, lead_id: '', deal_id: '', customer_id: '', quote_id: '', invoice_id: '' });
+    const defaultOwner = owners[0]?.id ?? '';
+    setForm({ title: '', description: '', priority: 'Medium', status: 'To Do', due_date: '', start_date: '', task_type: 'To-Do', owner_id: defaultOwner, estimated_hours: 0, recurring: 'None', reminder: true, lead_id: '', deal_id: '', customer_id: '', quote_id: '', invoice_id: '' });
     formModal.onOpen();
   };
 
@@ -411,12 +454,20 @@ export function Tasks() {
 
   const handleSubmit = async () => {
     if (!form.title.trim()) { toast({ title: 'Title is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
-    const owner = OWNERS.find((o) => o.id === form.owner_id) ?? OWNERS[0];
+    const trimmedTitle = form.title.trim();
+    if (!editing) {
+      const dup = tasks.some((t) => !t.archived && t.title.toLowerCase() === trimmedTitle.toLowerCase());
+      if (dup) {
+        toast({ title: 'Duplicate task', description: 'A task with this title already exists.', status: 'warning', duration: 3000, position: 'top-right' });
+        return;
+      }
+    }
+    const owner = ownerById(form.owner_id || owners[0]?.id || 'o1');
     const crmLinksData = { lead_id: form.lead_id || null, deal_id: form.deal_id || null, customer_id: form.customer_id || null, quote_id: form.quote_id || null, invoice_id: form.invoice_id || null };
     setSaving(true);
     if (editing) {
       const { error } = await supabase.from('tasks').update({
-        title: form.title, description: form.description, priority: form.priority, status: form.status,
+        title: trimmedTitle, description: form.description, priority: form.priority, status: form.status,
         due_date: form.due_date || null, start_date: form.start_date || null, task_type: form.task_type,
         owner_id: form.owner_id, owner_name: owner.name, estimated_hours: Number(form.estimated_hours),
         recurring: form.recurring, reminder: form.reminder, ...crmLinksData
@@ -424,8 +475,8 @@ export function Tasks() {
       if (!error) toast({ title: 'Task updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {
       const { error } = await supabase.from('tasks').insert({
-        user_id: session!.user.id, title: form.title, description: form.description, priority: form.priority,
-        status: 'Pending', done: false, due_date: form.due_date || null, start_date: form.start_date || null,
+        user_id: session!.user.id, title: trimmedTitle, description: form.description, priority: form.priority,
+        status: 'To Do', done: false, due_date: form.due_date || null, start_date: form.start_date || null,
         task_type: form.task_type, owner_id: form.owner_id, owner_name: owner.name,
         estimated_hours: Number(form.estimated_hours), checklist_total: 0, checklist_done: 0,
         recurring: form.recurring, reminder: form.reminder, ...crmLinksData
@@ -457,10 +508,16 @@ export function Tasks() {
   };
 
   const duplicateTask = async (task: Task) => {
-    const owner = OWNERS.find((o) => o.id === task.owner_id) ?? OWNERS[0];
+    const owner = ownerById(task.owner_id);
+    const dupName = `${task.title} (copy)`;
+    const dup = tasks.some((t) => !t.archived && t.title.toLowerCase() === dupName.toLowerCase());
+    if (dup) {
+      toast({ title: 'Duplicate detected', description: 'A copy of this task already exists.', status: 'warning', duration: 3000, position: 'top-right' });
+      return;
+    }
     await supabase.from('tasks').insert({
-      user_id: session!.user.id, title: `${task.title} (copy)`, description: task.description, priority: task.priority,
-      status: 'Pending', done: false, due_date: task.due_date, task_type: task.task_type,
+      user_id: session!.user.id, title: dupName, description: task.description, priority: task.priority,
+      status: 'To Do', done: false, due_date: task.due_date, task_type: task.task_type,
       owner_id: task.owner_id, owner_name: owner.name, recurring: task.recurring, reminder: task.reminder,
       lead_id: task.lead_id, deal_id: task.deal_id, customer_id: task.customer_id, quote_id: task.quote_id, invoice_id: task.invoice_id
     });
@@ -511,7 +568,7 @@ export function Tasks() {
   const checkboxStyle = { '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: 'app.border', w: '16px', h: '16px', _checked: { bg: 'navy.600', borderColor: 'navy.600' } } } as const;
 
   const TaskRow = ({ task }: { task: Task }) => {
-    const owner = OWNERS.find((o) => o.id === task.owner_id) ?? OWNERS[0];
+    const owner = ownerById(task.owner_id);
     const isOverdue = !task.done && task.due_date && new Date(task.due_date) < new Date(new Date().toDateString());
     const isDueSoon = !task.done && task.due_date && new Date(task.due_date) <= new Date(Date.now() + 86400000) && !isOverdue;
     const isExpanded = expandedIds.has(task.id);
@@ -521,73 +578,63 @@ export function Tasks() {
     return (
       <Box>
         <Flex align="center" gap="0" h="56px" borderBottom="1px solid" borderColor="app.border" _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" transition="background .12s ease" onClick={() => openDetail(task)}>
-          {/* Checkbox: select on hover/selected, done otherwise */}
-          <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" onClick={(e) => e.stopPropagation()}
-            sx={{ '& .select-cb': { display: 'none' }, '& .done-cb': { display: 'flex' }, '&:hover .select-cb': { display: 'flex' }, '&:hover .done-cb': { display: 'none' }, ...(selectedIds.has(task.id) && { '& .select-cb': { display: 'flex' }, '& .done-cb': { display: 'none' } }) }}>
-            <Box className="select-cb"><Checkbox isChecked={selectedIds.has(task.id)} onChange={() => toggleSelect(task.id)} size="sm" sx={checkboxStyle} /></Box>
-            <Box className="done-cb"><Checkbox isChecked={task.done} onChange={() => toggleDone(task.id)} size="sm" sx={checkboxStyle} /></Box>
+          <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center" onClick={(e) => e.stopPropagation()}>
+            <Checkbox isChecked={selectedIds.has(task.id)} onChange={() => toggleSelect(task.id)} size="sm" sx={checkboxStyle} />
           </Box>
-          {/* Expand chevron */}
           <Box w="28px" flexShrink={0} display="flex" alignItems="center" justifyContent="center">
             {taskSubs.length > 0 && <IconButton aria-label="Toggle subtasks" icon={isExpanded ? <ChevronDownIcon size={14} /> : <ChevronRightIcon size={14} />} size="xs" variant="ghost" onClick={(e) => { e.stopPropagation(); toggleExpand(task.id); }} color="app.faint" h="24px" w="24px" />}
           </Box>
-          {/* Priority stripe */}
           <Box w="3px" h="32px" borderRadius="full" bg={priorityColor[task.priority]} flexShrink={0} mr="12px" />
-          {/* Title + meta */}
           <Box flex="1" minW="0">
             <Flex align="center" gap="6px">
               <Icon as={TIcon} boxSize="11px" color="app.faint" />
               <Text fontSize="13px" fontWeight="600" color="app.text" textDecoration={task.done ? 'line-through' : 'none'} noOfLines={1}>{task.title}</Text>
-              {isOverdue && <Flex align="center" gap="3px" px="6px" py="1px" bg={dangerBg} borderRadius="full"><AlertTriangleIcon size={9} color={dangerText} /><Text fontSize="9px" fontWeight="700" color={dangerText}>OVERDUE</Text></Flex>}
+              {isOverdue && <Flex align="center" gap="3px" px="6px" py="1px" bg="#fde8e8" borderRadius="full"><AlertTriangleIcon size={9} color="#c23c3c" /><Text fontSize="9px" fontWeight="700" color="#c23c3c">OVERDUE</Text></Flex>}
               {isDueSoon && <Flex align="center" gap="3px" px="6px" py="1px" bg="#fef3e0" borderRadius="full"><ClockIcon size={9} color="#b5760f" /><Text fontSize="9px" fontWeight="700" color="#b5760f">DUE SOON</Text></Flex>}
             </Flex>
             <Flex mt="4px" align="center" gap="12px" flexWrap="wrap">
-              {task.due_date && <Flex align="center" gap="4px" color={isOverdue ? dangerText : 'app.faint'}><CalendarIcon size={11} /><Text fontSize="10px" fontWeight={isOverdue ? '700' : '400'}>{formatRelative(task.due_date)}</Text></Flex>}
+              {task.due_date && <Flex align="center" gap="4px" color={isOverdue ? '#c23c3c' : 'app.faint'}><CalendarIcon size={11} /><Text fontSize="10px" fontWeight={isOverdue ? '700' : '400'}>{formatRelative(task.due_date)}</Text></Flex>}
               {task.recurring !== 'None' && <Flex align="center" gap="4px" color="app.faint"><RepeatIcon size={11} /><Text fontSize="10px">{task.recurring}</Text></Flex>}
               {taskSubs.length > 0 && <Flex align="center" gap="4px" color="app.faint"><ListChecksIcon size={11} /><Text fontSize="10px">{taskSubs.filter((s) => s.done).length}/{taskSubs.length}</Text></Flex>}
               {task.estimated_hours > 0 && <Flex align="center" gap="4px" color="app.faint"><ClockIcon size={11} /><Text fontSize="10px">{task.estimated_hours}h</Text></Flex>}
-              {links.slice(0, 2).map((l) => <Tag key={l.label} size="sm" fontSize="9px" borderRadius="full" px="6px" py="1px" bg="app.surfaceAlt" color="app.faint" border="1px solid" borderColor="app.border">{l.label}: {l.value}</Tag>)}
+              {links.slice(0, 2).map((l) => <Tag key={l.label} size="sm" fontSize="9px" borderRadius="full" px="6px" py="1px" bg="app.surfaceAlt" color="app.subtle" border="1px solid" borderColor="app.border">{l.label}: {l.value}</Tag>)}
             </Flex>
           </Box>
-          {/* Priority pill */}
           <Box flexShrink={0} mr="10px"><PriorityPill priority={task.priority} /></Box>
-          {/* Status dropdown */}
           <Box w="120px" flexShrink={0} mr="10px" onClick={(e) => e.stopPropagation()}>
-            <Select size="xs" variant="unstyled" value={task.status} onChange={(e) => changeStatus(task.id, e.target.value)} fontSize="11px" fontWeight="600" color={STATUS_COLORS[task.status] ?? '#6b7488'} cursor="pointer">
+            <Select size="xs" variant="unstyled" value={task.status} onChange={(e) => changeStatus(task.id, e.target.value)} fontSize="11px" fontWeight="600" color={STATUS_COLORS[task.status] ?? 'app.subtle'} cursor="pointer">
               {allStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
             </Select>
           </Box>
-          {/* Owner avatar */}
           <Box w="28px" flexShrink={0} mr="8px"><Avatar size="2xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="8px" fontWeight="800" w="26px" h="26px" /></Box>
-          {/* Actions */}
           <Box w="36px" flexShrink={0} onClick={(e) => e.stopPropagation()}>
             <Menu placement="bottom-end">
               <MenuButton as={IconButton} aria-label="Task actions" icon={<MoreHorizontalIcon size={15} />} variant="ghost" size="sm" color="app.faint" borderRadius="8px" _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }} />
               <MenuList bg="app.surface" border="1px solid" borderColor="app.border" borderRadius="12px" boxShadow="0 8px 24px rgba(0,0,0,0.10)" py="6px" minW="160px">
-                <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CheckCircleIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => toggleDone(task.id)}>{task.done ? 'Mark as Pending' : 'Mark as Done'}</MenuItem>
+                <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CheckCircleIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => toggleDone(task.id)}>{task.done ? 'Mark as To Do' : 'Mark as Done'}</MenuItem>
                 <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<ClockIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => snoozeTask(task)}>Snooze 1 day</MenuItem>
                 <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CopyIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => duplicateTask(task)}>Duplicate</MenuItem>
                 <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CalendarIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => convertToCalendar(task)}>Convert to Meeting</MenuItem>
                 <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<ArchiveIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => archiveTask(task)}>Archive</MenuItem>
                 <Box h="1px" bg="app.border" mx="10px" my="4px" />
-                <MenuItem bg="app.surface" fontSize="13px" color={dangerText} icon={<Trash2Icon size={14} />} _hover={{ bg: dangerBg }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(task.id); confirmDel.onOpen(); }}>Delete</MenuItem>
+                <MenuItem bg="app.surface" fontSize="13px" color="#c23c3c" icon={<Trash2Icon size={14} />} _hover={{ bg: '#fde8e8' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(task.id); confirmDel.onOpen(); }}>Delete</MenuItem>
               </MenuList>
             </Menu>
           </Box>
         </Flex>
         <Collapse in={isExpanded} animateOpacity>
-          <Box ml="100px" mt="4px" mb="8px" pl="14px" borderLeft="2px solid" borderColor="app.border">
+          <Box ml="71px" mt="4px" mb="8px" pl="14px" borderLeft="2px solid" borderColor="app.border">
             {taskSubs.map((st) => (
               <Flex key={st.id} align="center" gap="8px" py="6px" _hover={{ bg: 'app.surfaceAlt' }} borderRadius="6px" px="6px">
                 <Checkbox isChecked={st.done} onChange={() => toggleSubtaskDone(st.id)} size="sm" sx={checkboxStyle} />
                 <Text fontSize="12px" flex="1" textDecoration={st.done ? 'line-through' : 'none'} color={st.done ? 'app.faint' : 'app.subtle'}>{st.title}</Text>
                 {st.due_date && <Text fontSize="10px" color="app.faint">{formatRelative(st.due_date)}</Text>}
-                <IconButton aria-label="Delete subtask" icon={<Trash2Icon size={11} />} size="xs" variant="ghost" color={dangerText} _hover={{ bg: dangerBg }} onClick={() => deleteSubtask(st.id)} />
+                <IconButton aria-label="Delete subtask" icon={<Trash2Icon size={11} />} size="xs" variant="ghost" color="#c23c3c" _hover={{ bg: '#fde8e8' }} onClick={() => deleteSubtask(st.id)} />
               </Flex>
             ))}
             <Flex align="center" gap="8px" py="6px" px="6px">
               <PlusIcon size={14} color="app.faint" />
-              <Input size="xs" placeholder="Add subtask..." value={newSubtaskParent === task.id ? newSubtaskTitle : ''} onChange={(e) => { setNewSubtaskParent(task.id); setNewSubtaskTitle(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); }} borderRadius="6px" borderColor="app.border" fontSize="11px" maxW="300px" />
+              <Input size="xs" placeholder="Add subtask..." value={newSubtaskParent === task.id ? newSubtaskTitle : ''} onChange={(e) => { setNewSubtaskParent(task.id); setNewSubtaskTitle(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); }} borderRadius="6px" borderColor="app.border" fontSize="11px" bg="app.surfaceAlt" color="app.text" />
               {newSubtaskParent === task.id && newSubtaskTitle.trim() && <Button size="xs" variant="ghost" color="#1c8a5c" onClick={addSubtask}>Add</Button>}
             </Flex>
           </Box>
@@ -597,7 +644,7 @@ export function Tasks() {
   };
 
   const KanbanCard = ({ task }: { task: Task }) => {
-    const owner = OWNERS.find((o) => o.id === task.owner_id) ?? OWNERS[0];
+    const owner = ownerById(task.owner_id);
     const isOverdue = !task.done && task.due_date && new Date(task.due_date) < new Date(new Date().toDateString());
     const taskSubs = subtasksFor(task.id);
     const PIcon = priorityIcon[task.priority] ?? ClockIcon;
@@ -608,13 +655,14 @@ export function Tasks() {
         onClick={() => openDetail(task)}
         bg="app.surface"
         borderRadius="12px"
-        border="1px solid" borderColor="app.border"
+        border="1px solid"
+        borderColor="app.border"
         borderLeftWidth="3px"
         borderLeftColor={priorityColor[task.priority]}
         p="14px"
         cursor="grab"
         _active={{ cursor: 'grabbing' }}
-        _hover={{ boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)', borderColor: 'app.border' }}
+        _hover={{ boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)', borderColor: 'app.subtle' }}
         transition="all .18s ease">
         <Flex justify="space-between" align="start" gap="6px">
           <Text fontSize="12px" fontWeight="600" color="app.text" flex="1" noOfLines={2}>{task.title}</Text>
@@ -622,9 +670,9 @@ export function Tasks() {
         </Flex>
         {task.description && <Text fontSize="10px" color="app.faint" mt="4px" noOfLines={1}>{task.description}</Text>}
         <Flex mt="10px" align="center" gap="8px" flexWrap="wrap">
-          {task.due_date && <Flex align="center" gap="3px" bg={isOverdue ? dangerBg : 'app.surfaceAlt'} px="6px" py="3px" borderRadius="full"><CalendarIcon size={10} color={isOverdue ? dangerText : 'app.faint'} /><Text fontSize="9px" fontWeight={isOverdue ? '700' : '500'} color={isOverdue ? dangerText : 'app.faint'}>{formatRelative(task.due_date)}</Text></Flex>}
-          {taskSubs.length > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ListChecksIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.faint">{taskSubs.filter((s) => s.done).length}/{taskSubs.length}</Text></Flex>}
-          {task.estimated_hours > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ClockIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.faint">{task.estimated_hours}h</Text></Flex>}
+          {task.due_date && <Flex align="center" gap="3px" bg={isOverdue ? '#fde8e8' : 'app.surfaceAlt'} px="6px" py="3px" borderRadius="full"><CalendarIcon size={10} color={isOverdue ? '#c23c3c' : 'app.faint'} /><Text fontSize="9px" fontWeight={isOverdue ? '700' : '500'} color={isOverdue ? '#c23c3c' : 'app.subtle'}>{formatRelative(task.due_date)}</Text></Flex>}
+          {taskSubs.length > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ListChecksIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.subtle">{taskSubs.filter((s) => s.done).length}/{taskSubs.length}</Text></Flex>}
+          {task.estimated_hours > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ClockIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.subtle">{task.estimated_hours}h</Text></Flex>}
         </Flex>
         <Flex mt="10px" justify="space-between" align="center">
           <Avatar size="2xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="8px" fontWeight="800" w="26px" h="26px" />
@@ -641,8 +689,8 @@ export function Tasks() {
         subtitle="Enterprise task management with sub-tasks, CRM linking, and analytics."
         actions={
           <HStack spacing="8px">
-            <Button size="sm" variant="ghost" color="app.faint" borderRadius="10px" fontSize="13px" fontWeight="500" h="36px" px="14px" leftIcon={<DownloadIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} onClick={handleExport}>Export</Button>
-            <Button size="sm" variant="ghost" color="app.faint" borderRadius="10px" fontSize="13px" fontWeight="500" h="36px" px="14px" leftIcon={<PlusIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} onClick={statusModal.onOpen}>Status</Button>
+            <Button size="sm" variant="ghost" color="app.subtle" borderRadius="10px" fontSize="13px" fontWeight="500" h="36px" px="14px" leftIcon={<DownloadIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} onClick={handleExport}>Export</Button>
+            <Button size="sm" variant="ghost" color="app.subtle" borderRadius="10px" fontSize="13px" fontWeight="500" h="36px" px="14px" leftIcon={<PlusIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} onClick={statusModal.onOpen}>Status</Button>
             <Button size="sm" h="36px" px="16px" borderRadius="10px" bg="navy.600" color="white" fontSize="13px" fontWeight="600" leftIcon={<PlusIcon size={15} />} _hover={{ bg: 'navy.500' }} boxShadow="0 1px 3px rgba(0,0,0,0.2)" onClick={openCreate}>New task</Button>
           </HStack>
         } />
@@ -650,28 +698,28 @@ export function Tasks() {
       {/* Analytics Dashboard */}
       <Grid templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(3, 1fr)', lg: 'repeat(6, 1fr)' }} gap="10px" mb="14px">
         {[
-          { label: 'Completion Rate', value: `${stats.completionRate}%`, icon: CheckCircleIcon, color: '#1c8a5c', bg: { light: '#e8f5ee', dark: '#143b2d' } },
-          { label: 'Pending', value: stats.pending, icon: ClockIcon, color: '#b5760f', bg: { light: '#fef3e0', dark: '#4a3210' } },
-          { label: 'In Progress', value: stats.inProgress, icon: ZapIcon, color: '#3355c9', bg: { light: '#e8f0ff', dark: '#1a2350' } },
-          { label: 'Done', value: stats.done, icon: CheckCircleIcon, color: '#1c8a5c', bg: { light: '#e8f5ee', dark: '#143b2d' } },
-          { label: 'Overdue', value: stats.overdue, icon: AlertTriangleIcon, color: '#c23c3c', bg: { light: '#fde8e8', dark: '#4a1818' } },
-          { label: 'Due Soon', value: stats.dueSoon, icon: CalendarClockIcon, color: '#e9683f', bg: { light: '#fff2ec', dark: '#4a1e16' } }
+          { label: 'Completion Rate', value: `${stats.completionRate}%`, icon: CheckCircleIcon, color: '#1c8a5c', bg: '#e8f5ee' },
+          { label: 'To Do', value: stats.pending, icon: ClockIcon, color: '#b5760f', bg: '#fef3e0' },
+          { label: 'In Progress', value: stats.inProgress, icon: ZapIcon, color: '#3355c9', bg: '#e8f0ff' },
+          { label: 'Done', value: stats.done, icon: CheckCircleIcon, color: '#1c8a5c', bg: '#e8f5ee' },
+          { label: 'Overdue', value: stats.overdue, icon: AlertTriangleIcon, color: '#c23c3c', bg: '#fde8e8' },
+          { label: 'Due Soon', value: stats.dueSoon, icon: CalendarClockIcon, color: '#e9683f', bg: '#fff2ec' },
         ].map((stat) => {
           const SIcon = stat.icon;
           const statBg = useColorModeValue(stat.bg.light, stat.bg.dark);
           return (
-            <Box key={stat.label} bg="app.surface" borderRadius="14px" border="1px solid" borderColor="app.border" p="14px" boxShadow="0 1px 3px rgba(0,0,0,0.03)">
+            <Card key={stat.label} p="14px">
               <Flex align="center" gap="10px">
-                <Flex w="34px" h="34px" align="center" justify="center" borderRadius="10px" bg={statBg} flexShrink={0}><SIcon size={16} color={stat.color} /></Flex>
+                <Flex w="34px" h="34px" align="center" justify="center" borderRadius="10px" bg={stat.bg} flexShrink={0}><SIcon size={16} color={stat.color} /></Flex>
                 <Box><Text fontSize="18px" fontWeight="800" color="app.text" lineHeight="1.1">{stat.value}</Text><Text fontSize="10px" color="app.faint" fontWeight="500">{stat.label}</Text></Box>
               </Flex>
-            </Box>
+            </Card>
           );
         })}
       </Grid>
 
       {/* Workload Distribution */}
-      <Box bg="app.surface" borderRadius="14px" border="1px solid" borderColor="app.border" p="16px" mb="14px" boxShadow="0 1px 3px rgba(0,0,0,0.03)">
+      <Card p="16px" mb="14px">
         <Text fontSize="11px" fontWeight="700" letterSpacing="0.06em" textTransform="uppercase" color="app.faint" mb="12px">Workload Distribution</Text>
         <Flex gap="20px" flexWrap="wrap">
           {stats.byOwner.map((o) => {
@@ -688,23 +736,20 @@ export function Tasks() {
             );
           })}
         </Flex>
-      </Box>
+      </Card>
 
       {/* Main container */}
-      <Box bg="app.surface" borderRadius="16px" border="1px solid" borderColor="app.border" overflow="hidden" boxShadow="0 1px 4px rgba(0,0,0,0.04)">
+      <Card overflow="hidden">
         {/* Toolbar */}
         <Flex px="20px" py="14px" gap="10px" align="center" flexWrap="wrap" borderBottom="1px solid" borderColor="app.border">
-          {/* View toggle */}
           <HStack spacing="2px" bg="app.surfaceAlt" borderRadius="10px" p="3px">
-            <Button size="xs" h="30px" borderRadius="8px" fontSize="12px" fontWeight="600" bg={view === 'list' ? 'navy.600' : 'transparent'} color={view === 'list' ? 'white' : 'app.faint'} _hover={{ bg: view === 'list' ? 'navy.500' : 'app.surfaceAlt' }} leftIcon={<ListIcon size={13} />} onClick={() => setView('list')}>List</Button>
-            <Button size="xs" h="30px" borderRadius="8px" fontSize="12px" fontWeight="600" bg={view === 'kanban' ? 'navy.600' : 'transparent'} color={view === 'kanban' ? 'white' : 'app.faint'} _hover={{ bg: view === 'kanban' ? 'navy.500' : 'app.surfaceAlt' }} leftIcon={<LayoutGridIcon size={13} />} onClick={() => setView('kanban')}>Kanban</Button>
+            <Button size="xs" h="30px" borderRadius="8px" fontSize="12px" fontWeight="600" bg={view === 'list' ? 'navy.600' : 'transparent'} color={view === 'list' ? 'white' : 'app.faint'} _hover={{ bg: view === 'list' ? 'navy.500' : 'app.surface' }} leftIcon={<ListIcon size={13} />} onClick={() => setView('list')}>List</Button>
+            <Button size="xs" h="30px" borderRadius="8px" fontSize="12px" fontWeight="600" bg={view === 'kanban' ? 'navy.600' : 'transparent'} color={view === 'kanban' ? 'white' : 'app.faint'} _hover={{ bg: view === 'kanban' ? 'navy.500' : 'app.surface' }} leftIcon={<LayoutGridIcon size={13} />} onClick={() => setView('kanban')}>Kanban</Button>
           </HStack>
-          {/* Search */}
           <InputGroup maxW="220px" size="sm">
             <InputLeftElement pointerEvents="none" h="36px"><SearchIcon size={15} color="app.faint" /></InputLeftElement>
-            <Input h="36px" pl="36px" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} borderRadius="10px" bg="app.surfaceAlt" border="1px solid" borderColor="app.border" fontSize="13px" color="app.text" _placeholder={{ color: 'app.faint' }} _focus={{ borderColor: 'app.border', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
+            <Input h="36px" pl="36px" placeholder="Search tasks..." value={search} onChange={(e) => setSearch(e.target.value)} borderRadius="10px" bg="app.surfaceAlt" border="1px solid" borderColor="app.border" fontSize="13px" color="app.text" _placeholder={{ color: 'app.faint' }} _focus={{ borderColor: 'app.subtle', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
           </InputGroup>
-          {/* Filters */}
           <Select size="sm" maxW="130px" value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)} {...selectStyle}>
             <option value="All">All Priority</option>{PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p}</option>)}
           </Select>
@@ -712,7 +757,7 @@ export function Tasks() {
             <option value="All">All Status</option>{allStatuses.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
           <Select size="sm" maxW="130px" value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} {...selectStyle}>
-            <option value="All">All Owner</option>{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+            <option value="All">All Owner</option>{owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
           </Select>
           <Select size="sm" maxW="130px" value={filterType} onChange={(e) => setFilterType(e.target.value)} {...selectStyle}>
             <option value="All">All Type</option>{TASK_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -722,8 +767,8 @@ export function Tasks() {
           </Select>
           {selectedIds.size > 0 && (
             <HStack spacing="6px" ml="auto">
-              <Button size="xs" h="32px" px="12px" borderRadius="8px" variant="outline" borderColor="app.border" color="app.subtle" fontSize="12px" fontWeight="500" _hover={{ bg: 'app.surfaceAlt' }} onClick={() => { setBulkStatusValue('Pending'); confirmBulkStatus.onOpen(); }}>Bulk Status</Button>
-              <Button size="xs" h="32px" px="12px" borderRadius="8px" bg={dangerBg} color={dangerText} fontSize="12px" fontWeight="600" border="none" leftIcon={<Trash2Icon size={12} />} _hover={{ bg: dangerHoverBg }} onClick={confirmBulk.onOpen}>Delete ({selectedIds.size})</Button>
+              <Button size="xs" h="32px" px="12px" borderRadius="8px" variant="outline" borderColor="app.border" color="app.subtle" fontSize="12px" fontWeight="500" _hover={{ bg: 'app.surfaceAlt' }} onClick={() => { setBulkStatusValue('To Do'); confirmBulkStatus.onOpen(); }}>Bulk Status</Button>
+              <Button size="xs" h="32px" px="12px" borderRadius="8px" bg="#fde8e8" color="#c23c3c" fontSize="12px" fontWeight="600" border="none" leftIcon={<Trash2Icon size={12} />} _hover={{ bg: '#fbd0d0' }} onClick={confirmBulk.onOpen}>Delete ({selectedIds.size})</Button>
             </HStack>
           )}
           <Text ml={selectedIds.size === 0 ? 'auto' : '0'} fontSize="13px" color="app.faint" fontWeight="500">{filtered.length} tasks</Text>
@@ -736,7 +781,7 @@ export function Tasks() {
         ) : view === 'list' ? (
           <Box px="20px" py="0">
             <Flex h="40px" align="center" borderBottom="1px solid" borderColor="app.border">
-              <Box w="40px" flexShrink={0} display="flex" alignItems="center" justifyContent="center"><Checkbox isChecked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} size="sm" sx={checkboxStyle} /></Box>
+              <Box w="40px" flexShrink={0} display="flex" alignItems="center"><Checkbox isChecked={selectedIds.size === filtered.length && filtered.length > 0} onChange={toggleSelectAll} size="sm" sx={checkboxStyle} /></Box>
               <Box w="28px" /><Box w="3px" mr="12px" />
               <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.06em">TASK</Text>
             </Flex>
@@ -752,7 +797,7 @@ export function Tasks() {
                   bg={dragOverStatus === col.status ? 'rgba(26,32,53,0.04)' : 'app.surfaceAlt'}
                   borderRadius="14px" p="10px" border="2px dashed" borderColor={dragOverStatus === col.status ? 'navy.600' : 'transparent'} transition="all .18s ease">
                   <Flex align="center" gap="7px" mb="12px" px="4px">
-                    <Box w="7px" h="7px" borderRadius="full" bg={STATUS_DOT[col.status] ?? '#6b7488'} />
+                    <Box w="7px" h="7px" borderRadius="full" bg={STATUS_DOT[col.status] ?? 'app.faint'} />
                     <Text fontSize="12px" fontWeight="700" textTransform="uppercase" letterSpacing="0.05em" color="app.subtle">{col.status}</Text>
                     <Flex ml="auto" align="center" justify="center" minW="22px" h="22px" px="6px" bg="app.surface" borderRadius="full" border="1px solid" borderColor="app.border"><Text fontSize="10px" fontWeight="700" color="app.faint">{col.items.length}</Text></Flex>
                   </Flex>
@@ -765,7 +810,7 @@ export function Tasks() {
             </Flex>
           </Box>
         )}
-      </Box>
+      </Card>
 
       {/* Detail Modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="lg" isCentered>
@@ -788,7 +833,7 @@ export function Tasks() {
           <ModalCloseButton top="20px" right="20px" color="app.faint" _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }} borderRadius="8px" />
           <ModalBody py="20px" overflowY="auto">
             {detailTask && (() => {
-              const owner = OWNERS.find((o) => o.id === detailTask.owner_id) ?? OWNERS[0];
+              const owner = ownerById(detailTask.owner_id);
               const isOverdue = !detailTask.done && detailTask.due_date && new Date(detailTask.due_date) < new Date(new Date().toDateString());
               const taskSubs = subtasksFor(detailTask.id);
               const taskComments = commentsFor(detailTask.id);
@@ -815,8 +860,8 @@ export function Tasks() {
                         <Grid templateColumns="1fr 1fr" gap="12px">
                           <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
                             <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">DUE DATE</Text></Flex>
-                            <Text mt="6px" fontSize="14px" fontWeight="700" color={isOverdue ? dangerText : 'app.text'}>{detailTask.due_date ? formatRelative(detailTask.due_date) : 'No due date'}</Text>
-                            {isOverdue && <Text fontSize="9px" color={dangerText} fontWeight="700">OVERDUE</Text>}
+                            <Text mt="6px" fontSize="14px" fontWeight="700" color={isOverdue ? '#c23c3c' : 'app.text'}>{detailTask.due_date ? formatRelative(detailTask.due_date) : 'No due date'}</Text>
+                            {isOverdue && <Text fontSize="9px" color="#c23c3c" fontWeight="700">OVERDUE</Text>}
                           </Box>
                           <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
                             <Flex align="center" gap="6px"><Icon as={ClockIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">ESTIMATED</Text></Flex>
@@ -842,7 +887,7 @@ export function Tasks() {
                         <Flex gap="8px" pt="4px">
                           {!detailTask.done && <Button flex="1" h="38px" borderRadius="10px" bg="#1c8a5c" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#167a4e' }} leftIcon={<CheckCircleIcon size={14} />} onClick={() => { toggleDone(detailTask.id); }}>Mark done</Button>}
                           <Button flex="1" h="38px" borderRadius="10px" bg="navy.600" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: 'navy.500' }} onClick={() => { detailModal.onClose(); openEdit(detailTask); }}>Edit</Button>
-                          <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor={dangerBg} color={dangerText} fontSize="13px" fontWeight="600" _hover={{ bg: dangerBg }} leftIcon={<Trash2Icon size={14} />} onClick={() => { setDeleteId(detailTask.id); confirmDel.onOpen(); }}>Delete</Button>
+                          <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="#fde8e8" color="#c23c3c" fontSize="13px" fontWeight="600" _hover={{ bg: '#fde8e8' }} leftIcon={<Trash2Icon size={14} />} onClick={() => { setDeleteId(detailTask.id); confirmDel.onOpen(); }}>Delete</Button>
                         </Flex>
                       </Stack>
                     </TabPanel>
@@ -854,12 +899,12 @@ export function Tasks() {
                             <Checkbox isChecked={st.done} onChange={() => toggleSubtaskDone(st.id)} size="sm" sx={checkboxStyle} />
                             <Text fontSize="13px" flex="1" textDecoration={st.done ? 'line-through' : 'none'} color={st.done ? 'app.faint' : 'app.subtle'}>{st.title}</Text>
                             {st.due_date && <Text fontSize="10px" color="app.faint">{formatRelative(st.due_date)}</Text>}
-                            <IconButton aria-label="Delete" icon={<Trash2Icon size={12} />} size="xs" variant="ghost" color={dangerText} _hover={{ bg: dangerBg }} onClick={() => deleteSubtask(st.id)} />
+                            <IconButton aria-label="Delete" icon={<Trash2Icon size={12} />} size="xs" variant="ghost" color="#c23c3c" _hover={{ bg: '#fde8e8' }} onClick={() => deleteSubtask(st.id)} />
                           </Flex>
                         ))}
                         <Flex align="center" gap="8px" py="8px" px="8px">
                           <PlusIcon size={14} color="app.faint" />
-                          <Input size="xs" placeholder="Add subtask..." value={newSubtaskParent === detailTask.id ? newSubtaskTitle : ''} onChange={(e) => { setNewSubtaskParent(detailTask.id); setNewSubtaskTitle(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); }} borderRadius="6px" borderColor="app.border" fontSize="12px" />
+                          <Input size="xs" placeholder="Add subtask..." value={newSubtaskParent === detailTask.id ? newSubtaskTitle : ''} onChange={(e) => { setNewSubtaskParent(detailTask.id); setNewSubtaskTitle(e.target.value); }} onKeyDown={(e) => { if (e.key === 'Enter') addSubtask(); }} borderRadius="6px" borderColor="app.border" fontSize="12px" bg="app.surfaceAlt" color="app.text" />
                           {newSubtaskParent === detailTask.id && newSubtaskTitle.trim() && <Button size="xs" variant="ghost" color="#1c8a5c" onClick={addSubtask}>Add</Button>}
                         </Flex>
                       </Stack>
@@ -874,7 +919,7 @@ export function Tasks() {
                           </Box>
                         ))}
                         <Flex gap="8px">
-                          <Input size="sm" h="36px" placeholder="Write a comment..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} borderRadius="10px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'app.border', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
+                          <Input size="sm" h="36px" placeholder="Write a comment..." value={newCommentText} onChange={(e) => setNewCommentText(e.target.value)} borderRadius="10px" borderColor="app.border" fontSize="13px" bg="app.surfaceAlt" color="app.text" _focus={{ borderColor: 'app.subtle', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
                           <Button size="sm" h="36px" bg="navy.600" color="white" borderRadius="10px" fontSize="13px" fontWeight="600" _hover={{ bg: 'navy.500' }} onClick={() => addComment(detailTask.id)} leftIcon={<MessageSquareIcon size={14} />}>Post</Button>
                         </Flex>
                       </Stack>
@@ -895,7 +940,7 @@ export function Tasks() {
         </FormControl>
         <FormControl>
           <FormLabel {...labelStyle}>Description</FormLabel>
-          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Task details..." size="sm" borderRadius="10px" borderColor="app.border" fontSize="13px" rows={3} _focus={{ borderColor: 'app.border', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
+          <Textarea value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Task details..." size="sm" borderRadius="10px" border="1px solid" borderColor="app.border" bg="app.surfaceAlt" color="app.text" fontSize="13px" rows={3} _focus={{ borderColor: 'app.subtle', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }} />
         </FormControl>
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl>
@@ -920,7 +965,7 @@ export function Tasks() {
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl>
             <FormLabel {...labelStyle}>Assign to</FormLabel>
-            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" {...selectStyle}>{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
+            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" {...selectStyle}>{owners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
           </FormControl>
           <FormControl>
             <FormLabel {...labelStyle}>Estimated hours</FormLabel>
@@ -944,23 +989,23 @@ export function Tasks() {
           <Grid templateColumns="1fr 1fr" gap="8px">
             <FormControl>
               <FormLabel fontSize="11px" color="app.faint">Lead</FormLabel>
-              <Select value={form.lead_id} onChange={(e) => setForm({ ...form, lead_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface"><option value="">None</option>{leads.map((l) => <option key={l.id} value={l.id}>{personName(l.person_id)}</option>)}</Select>
+              <Select value={form.lead_id} onChange={(e) => setForm({ ...form, lead_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface" color="app.text"><option value="">None</option>{leads.map((l) => <option key={l.id} value={l.id}>{personName(l.person_id)}</option>)}</Select>
             </FormControl>
             <FormControl>
               <FormLabel fontSize="11px" color="app.faint">Deal</FormLabel>
-              <Select value={form.deal_id} onChange={(e) => setForm({ ...form, deal_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface"><option value="">None</option>{deals.map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}</Select>
+              <Select value={form.deal_id} onChange={(e) => setForm({ ...form, deal_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface" color="app.text"><option value="">None</option>{deals.map((d) => <option key={d.id} value={d.id}>{d.title}</option>)}</Select>
             </FormControl>
             <FormControl>
               <FormLabel fontSize="11px" color="app.faint">Customer</FormLabel>
-              <Select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface"><option value="">None</option>{customers.map((c) => <option key={c.id} value={c.id}>{personName(leads.find((l) => l.id === c.id)?.person_id ?? null)}</option>)}</Select>
+              <Select value={form.customer_id} onChange={(e) => setForm({ ...form, customer_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface" color="app.text"><option value="">None</option>{customers.map((c) => <option key={c.id} value={c.id}>{personName(leads.find((l) => l.id === c.id)?.person_id ?? null)}</option>)}</Select>
             </FormControl>
             <FormControl>
               <FormLabel fontSize="11px" color="app.faint">Quote</FormLabel>
-              <Select value={form.quote_id} onChange={(e) => setForm({ ...form, quote_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface"><option value="">None</option>{quotes.map((q) => <option key={q.id} value={q.id}>{q.number}</option>)}</Select>
+              <Select value={form.quote_id} onChange={(e) => setForm({ ...form, quote_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface" color="app.text"><option value="">None</option>{quotes.map((q) => <option key={q.id} value={q.id}>{q.number}</option>)}</Select>
             </FormControl>
             <FormControl>
               <FormLabel fontSize="11px" color="app.faint">Invoice</FormLabel>
-              <Select value={form.invoice_id} onChange={(e) => setForm({ ...form, invoice_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface"><option value="">None</option>{invoices.map((i) => <option key={i.id} value={i.id}>{i.number}</option>)}</Select>
+              <Select value={form.invoice_id} onChange={(e) => setForm({ ...form, invoice_id: e.target.value })} size="sm" borderRadius="8px" borderColor="app.border" fontSize="12px" bg="app.surface" color="app.text"><option value="">None</option>{invoices.map((i) => <option key={i.id} value={i.id}>{i.number}</option>)}</Select>
             </FormControl>
           </Grid>
         </Box>
@@ -969,7 +1014,7 @@ export function Tasks() {
       {/* Custom Status Modal */}
       <FormModal isOpen={statusModal.isOpen} onClose={statusModal.onClose} title="Task Statuses" subtitle="Manage custom statuses" loading={false} onSubmit={addCustomStatus} submitLabel="Add Status">
         <Flex gap="8px">
-          <Input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="Status name (e.g. On Hold)" size="sm" {...inputStyle} />
+          <Input value={newStatusName} onChange={(e) => setNewStatusName(e.target.value)} placeholder="Status name (e.g. Review)" size="sm" {...inputStyle} />
           <Input type="color" value={newStatusColor} onChange={(e) => setNewStatusColor(e.target.value)} w="44px" h="36px" p="2px" borderRadius="10px" borderColor="app.border" />
         </Flex>
         <Box>

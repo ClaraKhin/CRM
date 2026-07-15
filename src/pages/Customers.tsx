@@ -188,6 +188,7 @@ export function Customers() {
       toast({ title: 'Customer created', status: 'success', duration: 2000, position: 'top-right' });
       await loadPeople();
     }
+    loadPeople();
     formDrawer.onClose();
   };
 

@@ -359,7 +359,7 @@ export function Leads() {
         } />
 
       {/* Table container */}
-      <Box bg="app.surface" borderRadius="16px" border="1px solid" borderColor="app.border" overflow="hidden" boxShadow="0 1px 4px rgba(0,0,0,0.04)">
+      <Box bg="app.surface" borderRadius="16px" border="1px solid" borderColor="app.border" overflow="hidden" boxShadow="0 4px 18px rgba(28,37,55,.035)">
 
         {/* Toolbar */}
         <Flex px="20px" py="14px" gap="10px" align="center" borderBottom="1px solid" borderColor="app.border">
@@ -373,11 +373,12 @@ export function Leads() {
               onChange={(e) => { list.setSearch(e.target.value); list.setPage(0); }}
               borderRadius="10px"
               bg="app.surfaceAlt"
-              border="1px solid" borderColor="app.border"
+              border="1px solid"
+              borderColor="app.border"
               fontSize="13px"
               color="app.text"
               _placeholder={{ color: 'app.faint' }}
-              _focus={{ borderColor: 'app.border', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}
+              _focus={{ borderColor: 'app.subtle', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }}
             />
           </InputGroup>
 
@@ -388,11 +389,12 @@ export function Leads() {
             onChange={(e) => { list.setFilter({ ...list.filter, status: e.target.value }); list.setPage(0); }}
             borderRadius="10px"
             bg="app.surfaceAlt"
-            border="1px solid" borderColor="app.border"
+            border="1px solid"
+            borderColor="app.border"
             fontSize="13px"
             color="app.subtle"
             size="sm"
-            _focus={{ borderColor: 'app.border', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}>
+            _focus={{ borderColor: 'app.subtle', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }}>
             <option value="All">All statuses</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
@@ -455,7 +457,8 @@ export function Leads() {
                   px="20px"
                   py="0"
                   align="center"
-                  borderBottom={isLast ? 'none' : '1px solid'} borderColor={isLast ? undefined : 'app.border'}
+                  borderBottom={isLast ? 'none' : '1px solid'}
+                  borderColor="app.border"
                   _hover={{ bg: 'app.surfaceAlt' }}
                   cursor="pointer"
                   transition="background .12s ease"
@@ -538,7 +541,8 @@ export function Leads() {
                       />
                       <MenuList
                         bg="app.surface"
-                        border="1px solid" borderColor="app.border"
+                        border="1px solid"
+                        borderColor="app.border"
                         borderRadius="12px"
                         boxShadow="0 8px 24px rgba(0,0,0,0.10)"
                         py="6px"
@@ -547,7 +551,7 @@ export function Leads() {
                         <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CheckCircleIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
                         <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CalendarPlusIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={async () => { const d = new Date(); d.setDate(d.getDate() + 1); await mutation.update(lead.id, { follow_up_date: d.toISOString().split('T')[0] }); toast({ title: 'Follow-up scheduled', status: 'success', duration: 1800, position: 'top-right' }); }}>Schedule follow-up</MenuItem>
                         <Box h="1px" bg="app.border" mx="10px" my="4px" />
-                        <MenuItem bg="app.surface" fontSize="13px" color={dangerText} icon={<Trash2Icon size={14} />} _hover={{ bg: dangerBg }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
+                        <MenuItem bg="app.surface" fontSize="13px" color="#c23c3c" icon={<Trash2Icon size={14} />} _hover={{ bg: '#fde8e8' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
                       </MenuList>
                     </Menu>
                   </Box>
@@ -598,23 +602,23 @@ export function Leads() {
       <FormModal isOpen={formModal.isOpen} onClose={formModal.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl isInvalid={!!formErrors.name}>
           <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Contact name</FormLabel>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
-          {formErrors.name && <Text fontSize="11px" color={dangerText} mt="4px">{formErrors.name}</Text>}
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
+          {formErrors.name && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.name}</Text>}
         </FormControl>
         <FormControl isInvalid={!!formErrors.company}>
           <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Company</FormLabel>
-          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
-          {formErrors.company && <Text fontSize="11px" color={dangerText} mt="4px">{formErrors.company}</Text>}
+          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
+          {formErrors.company && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.company}</Text>}
         </FormControl>
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl isInvalid={!!formErrors.email}>
             <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Email</FormLabel>
-            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
-            {formErrors.email && <Text fontSize="11px" color={dangerText} mt="4px">{formErrors.email}</Text>}
+            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
+            {formErrors.email && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.email}</Text>}
           </FormControl>
           <FormControl>
             <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Phone</FormLabel>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           </FormControl>
         </Grid>
         <Grid templateColumns="1fr 1fr" gap="10px">
@@ -634,12 +638,12 @@ export function Leads() {
           </FormControl>
           <FormControl>
             <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Deal value ($)</FormLabel>
-            <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           </FormControl>
         </Grid>
         <FormControl>
           <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Follow-up date</FormLabel>
-          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
         </FormControl>
       </FormModal>
 
@@ -692,7 +696,7 @@ export function Leads() {
                         <Text fontSize="11px" fontWeight="700" color="app.subtle">AI CONFIDENCE SCORE</Text>
                         <Text fontSize="13px" fontWeight="800" color={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'}>{detailLead.ai_score}%</Text>
                       </Flex>
-                      <Box w="full" h="8px" bg="app.surfaceAlt" borderRadius="full" overflow="hidden">
+                      <Box w="full" h="8px" bg="app.border" borderRadius="full" overflow="hidden">
                         <Box h="full" bg={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'} borderRadius="full" style={{ width: `${detailLead.ai_score}%` }} transition="width .4s ease" />
                       </Box>
                     </Box>
@@ -754,8 +758,8 @@ export function Leads() {
                     {group.leads.map((dupLead, i) => (
                       <Flex key={dupLead.id} align="center" gap="10px" py="8px" px="6px" bg={i === 0 ? 'rgba(28,138,92,0.05)' : 'transparent'} borderRadius="8px">
                         <Box w="20px" flexShrink={0}>{i === 0 && <Text fontSize="9px" fontWeight="800" color="#1c8a5c">MASTER</Text>}</Box>
-                        <Avatar size="2xs" name={dupLead.person?.name ?? '?'} bg={dupLead.person?.avatar_color ?? '#d8e7ff'} color="app.subtle" />
-                        <Box flex="1"><Text fontSize="12px" fontWeight="600" noOfLines={1}>{dupLead.person?.name ?? 'Unknown'}</Text><Text fontSize="10px" color="app.faint">{dupLead.person?.company ?? '—'} · Score {dupLead.ai_score}</Text></Box>
+                        <Avatar size="2xs" name={dupLead.person?.name ?? '?'} bg={dupLead.person?.avatar_color ?? '#d8e7ff'} color="#46506a" />
+                        <Box flex="1"><Text fontSize="12px" fontWeight="600" color="app.text" noOfLines={1}>{dupLead.person?.name ?? 'Unknown'}</Text><Text fontSize="10px" color="app.faint">{dupLead.person?.company ?? '—'} · Score {dupLead.ai_score}</Text></Box>
                         <StatusPill status={dupLead.status} />
                       </Flex>
                     ))}

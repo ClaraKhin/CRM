@@ -83,10 +83,10 @@ export function AiBriefing({ onAction }: {onAction: () => void;}) {
         mt="16px"
         size="sm"
         w="full"
-        bg="white"
+        bg="whiteAlpha.900"
         color="navy.600"
         _hover={{
-          bg: 'gray.100'
+          bg: 'whiteAlpha.800'
         }}
         borderRadius="9px"
         fontSize="11px"

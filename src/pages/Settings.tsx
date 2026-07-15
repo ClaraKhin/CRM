@@ -11,7 +11,6 @@ import {
   Grid,
   HStack,
   Icon,
-  IconButton,
   Input,
   Select,
   Spinner,
@@ -31,9 +30,10 @@ import {
   Tabs,
   Tr,
   useDisclosure,
-  useToast } from
-'@chakra-ui/react';
+  useToast } from '@chakra-ui/react';
 import {
+  ActivityIcon,
+  BellIcon,
   CheckIcon,
   CopyIcon,
   DatabaseIcon,
@@ -42,13 +42,11 @@ import {
   LinkIcon,
   PlusIcon,
   RefreshCwIcon,
-  ServerIcon,
   SettingsIcon,
   ShieldIcon,
   Trash2Icon,
   UsersIcon,
-  ZapIcon } from
-'lucide-react';
+  ZapIcon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { StatusBadge } from '../components/ui/StatusBadge';
@@ -63,6 +61,9 @@ const FIELD_TYPES = ['text', 'number', 'date', 'select', 'textarea', 'checkbox']
 const SCORE_FIELDS = ['source', 'status', 'value'];
 const SCORE_OPERATORS = ['equals', 'contains', 'greater_than', 'less_than'];
 const CURRENCIES = ['USD', 'MMK', 'SGD', 'EUR', 'GBP', 'JPY', 'THB', 'CNY'];
+const PROVIDERS = ['Google', 'Outlook', 'Slack', 'HubSpot', 'Salesforce', 'Zapier', 'Custom API', 'Webhook'];
+const AUTH_TYPES = ['api_key', 'oauth2', 'bearer', 'basic', 'none'];
+const PERMISSION_KEYS = ['view_leads', 'edit_leads', 'delete_leads', 'view_deals', 'edit_deals', 'delete_deals', 'view_invoices', 'edit_invoices', 'delete_invoices', 'export_data', 'manage_users'];
 
 type SyncConnection = { id: string; name: string; provider: string; endpoint_url: string; auth_type: string; status: string; last_synced_at: string | null; config: any; created_at: string };
 type SyncLog = { id: string; connection_id: string; status: string; records_synced: number; error_message: string; created_at: string };
@@ -71,10 +72,15 @@ type ScoreRule = { id: string; name: string; condition_field: string; condition_
 type AppSetting = { id: string; key: string; value: string };
 type RoleDef = { id: string; name: string; description: string; permissions: Record<string, boolean>; is_system: boolean };
 
-const PROVIDERS = ['Google', 'Outlook', 'Slack', 'HubSpot', 'Salesforce', 'Zapier', 'Custom API', 'Webhook'];
-const AUTH_TYPES = ['api_key', 'oauth2', 'bearer', 'basic', 'none'];
+const TAB_GROUPS = [
+  { group: 'Account', tabs: ['Profile'] },
+  { group: 'Workspace', tabs: ['Users', 'Roles', 'Notifications'] },
+  { group: 'System', tabs: ['Custom Fields', 'Lead Scoring', 'Localization & Tax'] },
+  { group: 'Integrations', tabs: ['API Sync', 'API Keys'] },
+  { group: 'Monitoring', tabs: ['Audit Logs'] },
+];
 
-const PERMISSION_KEYS = ['view_leads', 'edit_leads', 'delete_leads', 'view_deals', 'edit_deals', 'delete_deals', 'view_invoices', 'edit_invoices', 'delete_invoices', 'export_data', 'manage_users'];
+const TAB_LIST = TAB_GROUPS.flatMap((g) => g.tabs);
 
 export function Settings() {
   const toast = useToast();
@@ -96,7 +102,6 @@ export function Settings() {
   const [deleteSyncId, setDeleteSyncId] = useState<string | null>(null);
   const [syncing, setSyncing] = useState<string | null>(null);
 
-  // User Management
   const [users, setUsers] = useState<any[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(true);
   const userModal = useDisclosure();
@@ -106,7 +111,6 @@ export function Settings() {
   const confirmUserDel = useDisclosure();
   const [deleteUserId, setDeleteUserId] = useState<string | null>(null);
 
-  // Custom Fields
   const [customFields, setCustomFields] = useState<CustomField[]>([]);
   const [loadingFields, setLoadingFields] = useState(true);
   const fieldModal = useDisclosure();
@@ -116,7 +120,6 @@ export function Settings() {
   const confirmFieldDel = useDisclosure();
   const [deleteFieldId, setDeleteFieldId] = useState<string | null>(null);
 
-  // Lead Scoring Rules
   const [scoreRules, setScoreRules] = useState<ScoreRule[]>([]);
   const [loadingRules, setLoadingRules] = useState(true);
   const ruleModal = useDisclosure();
@@ -126,17 +129,11 @@ export function Settings() {
   const confirmRuleDel = useDisclosure();
   const [deleteRuleId, setDeleteRuleId] = useState<string | null>(null);
 
-  // Localization & Tax
   const [settings, setSettings] = useState<AppSetting[]>([]);
   const [loadingSettings, setLoadingSettings] = useState(true);
   const [savingSettings, setSavingSettings] = useState(false);
   const [locForm, setLocForm] = useState({ currency: 'USD', tax_rate: '0', exchange_rate: '1' });
 
-  // Demo seed
-  const [seedingUser, setSeedingUser] = useState(false);
-  const [seedingData, setSeedingData] = useState(false);
-
-  // Roles
   const [roles, setRoles] = useState<RoleDef[]>([]);
   const [loadingRoles, setLoadingRoles] = useState(true);
   const roleModal = useDisclosure();
@@ -145,6 +142,10 @@ export function Settings() {
   const [savingRole, setSavingRole] = useState(false);
   const confirmRoleDel = useDisclosure();
   const [deleteRoleId, setDeleteRoleId] = useState<string | null>(null);
+
+  const [notifPrefs, setNotifPrefs] = useState<Record<string, boolean>>({
+    email: true, push: true, slack: false, telegram: false, digest: false,
+  });
 
   useEffect(() => { setProfileForm({ full_name: profile?.full_name ?? '', email: profile?.email ?? '' }); }, [profile]);
 
@@ -167,7 +168,7 @@ export function Settings() {
     setLoadingSync(true);
     const [cRes, lRes] = await Promise.all([
       supabase.from('api_sync_connections').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }),
-      supabase.from('api_sync_logs').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10)
+      supabase.from('api_sync_logs').select('*').eq('user_id', session.user.id).order('created_at', { ascending: false }).limit(10),
     ]);
     setSyncConnections((cRes.data ?? []) as SyncConnection[]);
     setSyncLogs((lRes.data ?? []) as SyncLog[]);
@@ -206,6 +207,8 @@ export function Settings() {
     setSettings(settingRows);
     const get = (key: string) => settingRows.find((s) => s.key === key)?.value ?? '';
     setLocForm({ currency: get('currency') || 'USD', tax_rate: get('tax_rate') || '0', exchange_rate: get('exchange_rate') || '1' });
+    const np = settingRows.find((s) => s.key === 'notif_prefs');
+    if (np) { try { setNotifPrefs(JSON.parse(np.value)); } catch { /* keep defaults */ } }
     setLoadingSettings(false);
   }, [session]);
 
@@ -235,7 +238,6 @@ export function Settings() {
     setSavingProfile(false);
   };
 
-  // Sync CRUD
   const openCreateSync = () => { setEditingSyncId(null); setSyncForm({ name: '', provider: 'Google', endpoint_url: '', auth_type: 'api_key', api_key: '' }); syncDrawer.onOpen(); };
   const openEditSync = (conn: SyncConnection) => { setEditingSyncId(conn.id); setSyncForm({ name: conn.name, provider: conn.provider, endpoint_url: conn.endpoint_url, auth_type: conn.auth_type, api_key: conn.config?.api_key ?? '' }); syncDrawer.onOpen(); };
   const handleSaveSync = async () => {
@@ -265,7 +267,6 @@ export function Settings() {
     }, 1500);
   };
 
-  // User CRUD
   const openCreateUser = () => { setEditingUserId(null); setUserForm({ email: '', full_name: '', role: 'sales_executive', avatar_color: '#ffdccb' }); userModal.onOpen(); };
   const openEditUser = (u: any) => { setEditingUserId(u.id); setUserForm({ email: u.email, full_name: u.full_name, role: u.role, avatar_color: u.avatar_color ?? '#ffdccb' }); userModal.onOpen(); };
   const handleSaveUser = async () => {
@@ -299,7 +300,6 @@ export function Settings() {
     confirmUserDel.onClose(); setDeleteUserId(null); loadUsers();
   };
 
-  // Custom Field CRUD
   const openCreateField = () => { setEditingFieldId(null); setFieldForm({ entity_type: 'lead', field_name: '', field_label: '', field_type: 'text', field_options: '', is_required: false }); fieldModal.onOpen(); };
   const openEditField = (f: CustomField) => { setEditingFieldId(f.id); setFieldForm({ entity_type: f.entity_type, field_name: f.field_name, field_label: f.field_label, field_type: f.field_type, field_options: f.field_options ?? '', is_required: f.is_required }); fieldModal.onOpen(); };
   const handleSaveField = async () => {
@@ -317,7 +317,6 @@ export function Settings() {
   };
   const handleDeleteField = async () => { if (!deleteFieldId) return; await supabase.from('custom_fields').delete().eq('id', deleteFieldId).eq('user_id', session!.user.id); toast({ title: 'Field deleted', status: 'success', duration: 1800, position: 'top-right' }); confirmFieldDel.onClose(); setDeleteFieldId(null); loadCustomFields(); };
 
-  // Score Rule CRUD
   const openCreateRule = () => { setEditingRuleId(null); setRuleForm({ name: '', condition_field: 'source', condition_operator: 'equals', condition_value: '', points: 10 }); ruleModal.onOpen(); };
   const openEditRule = (r: ScoreRule) => { setEditingRuleId(r.id); setRuleForm({ name: r.name, condition_field: r.condition_field, condition_operator: r.condition_operator, condition_value: r.condition_value, points: r.points }); ruleModal.onOpen(); };
   const handleSaveRule = async () => {
@@ -335,7 +334,6 @@ export function Settings() {
   const handleDeleteRule = async () => { if (!deleteRuleId) return; await supabase.from('lead_score_rules').delete().eq('id', deleteRuleId).eq('user_id', session!.user.id); toast({ title: 'Rule deleted', status: 'success', duration: 1800, position: 'top-right' }); confirmRuleDel.onClose(); setDeleteRuleId(null); loadScoreRules(); };
   const toggleRule = async (r: ScoreRule) => { await supabase.from('lead_score_rules').update({ enabled: !r.enabled }).eq('id', r.id).eq('user_id', session!.user.id); loadScoreRules(); };
 
-  // Localization save
   const handleSaveSettings = async () => {
     setSavingSettings(true);
     const upsert = async (key: string, value: string) => {
@@ -343,12 +341,11 @@ export function Settings() {
       if (existing) await supabase.from('app_settings').update({ value, updated_at: new Date().toISOString() }).eq('id', existing.id);
       else await supabase.from('app_settings').insert({ user_id: session!.user.id, key, value });
     };
-    await Promise.all([upsert('currency', locForm.currency), upsert('tax_rate', locForm.tax_rate), upsert('exchange_rate', locForm.exchange_rate)]);
+    await Promise.all([upsert('currency', locForm.currency), upsert('tax_rate', locForm.tax_rate), upsert('exchange_rate', locForm.exchange_rate), upsert('notif_prefs', JSON.stringify(notifPrefs))]);
     toast({ title: 'Settings saved', status: 'success', duration: 2000, position: 'top-right' });
     setSavingSettings(false); loadSettings();
   };
 
-  // Role CRUD
   const openCreateRole = () => { setEditingRoleId(null); setRoleForm({ name: '', description: '', permissions: {} }); roleModal.onOpen(); };
   const openEditRole = (r: RoleDef) => { setEditingRoleId(r.id); setRoleForm({ name: r.name, description: r.description ?? '', permissions: r.permissions ?? {} }); roleModal.onOpen(); };
   const handleSaveRole = async () => {
@@ -366,44 +363,42 @@ export function Settings() {
   const handleDeleteRole = async () => { if (!deleteRoleId) return; await supabase.from('roles').delete().eq('id', deleteRoleId).eq('user_id', session!.user.id); toast({ title: 'Role deleted', status: 'success', duration: 1800, position: 'top-right' }); confirmRoleDel.onClose(); setDeleteRoleId(null); loadRoles(); };
   const togglePerm = (key: string) => setRoleForm((prev) => ({ ...prev, permissions: { ...prev.permissions, [key]: !prev.permissions[key] } }));
 
-  // Demo seed handlers
-  const handleSeedUser = async () => {
-    setSeedingUser(true);
-    const { data, error } = await supabase.functions.invoke('seed-demo-user');
-    setSeedingUser(false);
-    if (error) {
-      toast({ title: 'Seed user failed', description: error.message, status: 'error', duration: 4000, position: 'top-right' });
-    } else if (data?.error) {
-      toast({ title: 'Seed user failed', description: data.error, status: 'error', duration: 4000, position: 'top-right' });
-    } else {
-      toast({ title: 'Demo user ready', description: `${data?.email} seeded successfully.`, status: 'success', duration: 3000, position: 'top-right' });
-      loadUsers();
-    }
+  const saveNotifPref = async (key: string) => {
+    const newPrefs = { ...notifPrefs, [key]: !notifPrefs[key] };
+    setNotifPrefs(newPrefs);
+    const existing = settings.find((s) => s.key === 'notif_prefs');
+    if (existing) await supabase.from('app_settings').update({ value: JSON.stringify(newPrefs), updated_at: new Date().toISOString() }).eq('id', existing.id);
+    else await supabase.from('app_settings').insert({ user_id: session!.user.id, key: 'notif_prefs', value: JSON.stringify(newPrefs) });
   };
 
-  const handleSeedData = async () => {
-    setSeedingData(true);
-    const { data, error } = await supabase.functions.invoke('seed-demo-data');
-    setSeedingData(false);
-    if (error) {
-      toast({ title: 'Seed data failed', description: error.message, status: 'error', duration: 4000, position: 'top-right' });
-    } else if (data?.error) {
-      toast({ title: 'Seed data failed', description: data.error, status: 'error', duration: 4000, position: 'top-right' });
-    } else {
-      const msg = data?.message ?? `Seeded ${data?.count ?? ''} records.`;
-      toast({ title: 'Demo data ready', description: msg, status: 'success', duration: 3000, position: 'top-right' });
-    }
-  };
+  const NOTIF_ITEMS = [
+    { key: 'email', label: 'Email notifications', desc: 'Receive activity updates via email' },
+    { key: 'push', label: 'Push notifications', desc: 'Browser push alerts for important events' },
+    { key: 'slack', label: 'Slack alerts', desc: 'Send critical alerts to a Slack channel' },
+    { key: 'telegram', label: 'Telegram alerts', desc: 'Get notified through Telegram bot' },
+    { key: 'digest', label: 'Weekly digest', desc: 'Summary of your pipeline every Monday' },
+  ];
 
-  const TABS = ['Profile', 'Users', 'Roles', 'Custom Fields', 'Lead Scoring', 'Localization & Tax', 'Integrations', 'API Sync', 'Notifications', 'API Keys', 'Audit Logs'];
+  const tabIcon: Record<string, React.ElementType> = {
+    Profile: SettingsIcon, Users: UsersIcon, Roles: ShieldIcon, Notifications: BellIcon,
+    'Custom Fields': DatabaseIcon, 'Lead Scoring': ZapIcon, 'Localization & Tax': GlobeIcon,
+    'API Sync': LinkIcon, 'API Keys': KeyIcon, 'Audit Logs': ActivityIcon,
+  };
 
   return (
     <>
       <PageHeader title="Settings" subtitle="Manage your workspace, team, and integrations." />
 
-      <Tabs colorScheme="orange" variant="soft-rounded">
-        <TabList overflowX="auto" pb="4px" gap="4px">
-          {TABS.map((t) => <Tab key={t} fontSize="12px" fontWeight="600" whiteSpace="nowrap" _selected={{ bg: 'brand.50', color: 'brand.600' }}>{t}</Tab>)}
+      <Tabs colorScheme="orange" variant="soft-rounded" isLazy>
+        <TabList overflowX="auto" pb="4px" gap="4px" flexWrap="wrap">
+          {TAB_GROUPS.map((tg) => (
+            <Box key={tg.group} display="flex" alignItems="center" gap="2px">
+              <Text fontSize="9px" fontWeight="800" color="app.faint" letterSpacing="0.08em" mr="4px" display={{ base: 'none', lg: 'block' }}>{tg.group.toUpperCase()}</Text>
+              {tg.tabs.map((t) => (
+                <Tab key={t} fontSize="11px" fontWeight="600" whiteSpace="nowrap" _selected={{ bg: 'brand.50', color: 'brand.600' }}>{t}</Tab>
+              ))}
+            </Box>
+          ))}
         </TabList>
 
         <TabPanels mt="14px">
@@ -514,6 +509,24 @@ export function Settings() {
             </Card>
           </TabPanel>
 
+          {/* Notifications */}
+          <TabPanel px="0">
+            <Card p="20px" maxW="560px">
+              <Flex align="center" gap="8px" mb="14px"><Icon as={BellIcon} boxSize="16px" color="brand.500" /><Text fontWeight="700" fontSize="14px">Notification Preferences</Text></Flex>
+              <Stack spacing="0">
+                {NOTIF_ITEMS.map((item, i) => (
+                  <Flex key={item.key} align="center" py="13px" borderBottom={i === NOTIF_ITEMS.length - 1 ? '0' : '1px solid'} borderColor="app.border">
+                    <Box flex="1">
+                      <Text fontSize="13px" fontWeight="600">{item.label}</Text>
+                      <Text fontSize="11px" color="app.faint">{item.desc}</Text>
+                    </Box>
+                    <Switch isChecked={!!notifPrefs[item.key]} onChange={() => saveNotifPref(item.key)} colorScheme="orange" />
+                  </Flex>
+                ))}
+              </Stack>
+            </Card>
+          </TabPanel>
+
           {/* Custom Fields */}
           <TabPanel px="0">
             <Card>
@@ -582,7 +595,7 @@ export function Settings() {
             </Card>
           </TabPanel>
 
-          {/* Integrations */}
+          {/* Integrations — MCP servers shown here */}
           <TabPanel px="0">
             <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }} gap="14px">
               {mcpServers.map((server) => (
@@ -636,17 +649,6 @@ export function Settings() {
             )}
           </TabPanel>
 
-          {/* Notifications */}
-          <TabPanel px="0">
-            <Card p="20px" maxW="560px">
-              {['Email notifications', 'Push notifications', 'Slack alerts', 'Telegram alerts', 'Weekly digest'].map((label, i) => (
-                <Flex key={label} align="center" py="13px" borderBottom={i === 4 ? '0' : '1px solid'} borderColor="app.border">
-                  <Text fontSize="13px" flex="1">{label}</Text><Switch defaultChecked={i < 2} colorScheme="orange" />
-                </Flex>
-              ))}
-            </Card>
-          </TabPanel>
-
           {/* API Keys */}
           <TabPanel px="0">
             <Card p="20px" maxW="620px">
@@ -681,7 +683,6 @@ export function Settings() {
         </TabPanels>
       </Tabs>
 
-      {/* User Modal */}
       <FormModal isOpen={userModal.isOpen} onClose={userModal.onClose} title={editingUserId ? 'Edit user' : 'Add user'} subtitle={editingUserId ? 'Update user account' : 'Create a new user account'} loading={savingUser} onSubmit={handleSaveUser} submitLabel={editingUserId ? 'Update' : 'Create'}>
         <FormControl><FormLabel fontSize="12px">Full name</FormLabel><Input value={userForm.full_name} onChange={(e) => setUserForm({ ...userForm, full_name: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
         <FormControl><FormLabel fontSize="12px">Email</FormLabel><Input value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" isDisabled={!!editingUserId} /></FormControl>
@@ -691,7 +692,6 @@ export function Settings() {
         </Grid>
       </FormModal>
 
-      {/* Custom Field Modal */}
       <FormModal isOpen={fieldModal.isOpen} onClose={fieldModal.onClose} title={editingFieldId ? 'Edit field' : 'Add custom field'} subtitle={editingFieldId ? 'Update field definition' : 'Create an industry-specific field'} loading={savingField} onSubmit={handleSaveField} submitLabel={editingFieldId ? 'Update' : 'Create'}>
         <FormControl><FormLabel fontSize="12px">Field label</FormLabel><Input value={fieldForm.field_label} onChange={(e) => setFieldForm({ ...fieldForm, field_label: e.target.value })} placeholder="Property Type" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
         <FormControl><FormLabel fontSize="12px">Field name (key)</FormLabel><Input value={fieldForm.field_name} onChange={(e) => setFieldForm({ ...fieldForm, field_name: e.target.value })} placeholder="property_type" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
@@ -703,7 +703,6 @@ export function Settings() {
         <Flex align="center" gap="10px"><Checkbox isChecked={fieldForm.is_required} onChange={(e) => setFieldForm({ ...fieldForm, is_required: e.target.checked })} colorScheme="orange" /><Text fontSize="12px">Required field</Text></Flex>
       </FormModal>
 
-      {/* Score Rule Modal */}
       <FormModal isOpen={ruleModal.isOpen} onClose={ruleModal.onClose} title={editingRuleId ? 'Edit rule' : 'Add scoring rule'} subtitle={editingRuleId ? 'Update scoring rule' : 'Create a point-based scoring rule'} loading={savingRule} onSubmit={handleSaveRule} submitLabel={editingRuleId ? 'Update' : 'Create'}>
         <FormControl><FormLabel fontSize="12px">Rule name</FormLabel><Input value={ruleForm.name} onChange={(e) => setRuleForm({ ...ruleForm, name: e.target.value })} placeholder="Website source bonus" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
         <Grid templateColumns="1fr 1fr" gap="10px">
@@ -716,7 +715,6 @@ export function Settings() {
         </Grid>
       </FormModal>
 
-      {/* Role Modal */}
       <FormModal isOpen={roleModal.isOpen} onClose={roleModal.onClose} title={editingRoleId ? 'Edit role' : 'Add role'} subtitle={editingRoleId ? 'Update role and permissions' : 'Define a custom role with permissions'} loading={savingRole} onSubmit={handleSaveRole} submitLabel={editingRoleId ? 'Update' : 'Create'}>
         <FormControl><FormLabel fontSize="12px">Role name</FormLabel><Input value={roleForm.name} onChange={(e) => setRoleForm({ ...roleForm, name: e.target.value })} placeholder="Sales Coordinator" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
         <FormControl><FormLabel fontSize="12px">Description</FormLabel><Input value={roleForm.description} onChange={(e) => setRoleForm({ ...roleForm, description: e.target.value })} placeholder="Can view and edit leads, no delete" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" /></FormControl>
