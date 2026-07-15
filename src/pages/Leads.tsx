@@ -29,7 +29,7 @@ import {
   Stack,
   Text,
   useDisclosure,
-  useToast } from
+  useToast, Badge } from
 '@chakra-ui/react';
 import {
   CalendarPlusIcon,
