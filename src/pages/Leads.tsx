@@ -321,12 +321,12 @@ export function Leads() {
               h="36px"
               px="16px"
               borderRadius="10px"
-              bg="#1a2035"
+              bg="navy.600"
               color="white"
               fontSize="13px"
               fontWeight="600"
               leftIcon={<PlusIcon size={15} />}
-              _hover={{ bg: '#253050' }}
+              _hover={{ bg: 'navy.500' }}
               boxShadow="0 1px 3px rgba(0,0,0,0.2)"
               onClick={openCreate}>
               New lead
@@ -335,12 +335,12 @@ export function Leads() {
         } />
 
       {/* Table container */}
-      <Box bg="white" borderRadius="16px" border="1px solid #edf0f5" overflow="hidden" boxShadow="0 1px 4px rgba(0,0,0,0.04)">
+      <Box bg="app.surface" borderRadius="16px" border="1px solid" borderColor="app.border" overflow="hidden" boxShadow="0 4px 18px rgba(28,37,55,.035)">
 
         {/* Toolbar */}
-        <Flex px="20px" py="14px" gap="10px" align="center" borderBottom="1px solid #f0f2f6">
+        <Flex px="20px" py="14px" gap="10px" align="center" borderBottom="1px solid" borderColor="app.border">
           <InputGroup maxW="260px" size="sm">
-            <InputLeftElement pointerEvents="none" h="36px"><SearchIcon size={15} color="#b0b8cc" /></InputLeftElement>
+            <InputLeftElement pointerEvents="none" h="36px"><SearchIcon size={15} color="app.faint" /></InputLeftElement>
             <Input
               h="36px"
               pl="36px"
@@ -348,12 +348,13 @@ export function Leads() {
               value={list.search}
               onChange={(e) => { list.setSearch(e.target.value); list.setPage(0); }}
               borderRadius="10px"
-              bg="#f8f9fc"
-              border="1px solid #edf0f5"
+              bg="app.surfaceAlt"
+              border="1px solid"
+              borderColor="app.border"
               fontSize="13px"
-              color="#1d273d"
-              _placeholder={{ color: '#b0b8cc' }}
-              _focus={{ borderColor: '#c5ccdc', bg: 'white', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}
+              color="app.text"
+              _placeholder={{ color: 'app.faint' }}
+              _focus={{ borderColor: 'app.subtle', bg: 'app.surface', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }}
             />
           </InputGroup>
 
@@ -363,12 +364,13 @@ export function Leads() {
             value={list.filter.status ?? 'All'}
             onChange={(e) => { list.setFilter({ ...list.filter, status: e.target.value }); list.setPage(0); }}
             borderRadius="10px"
-            bg="#f8f9fc"
-            border="1px solid #edf0f5"
+            bg="app.surfaceAlt"
+            border="1px solid"
+            borderColor="app.border"
             fontSize="13px"
-            color="#46506a"
+            color="app.subtle"
             size="sm"
-            _focus={{ borderColor: '#c5ccdc', boxShadow: '0 0 0 3px rgba(51,85,201,0.08)' }}>
+            _focus={{ borderColor: 'app.subtle', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }}>
             <option value="All">All statuses</option>
             {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}
           </Select>
@@ -391,34 +393,34 @@ export function Leads() {
             </Button>
           )}
 
-          <Text ml="auto" fontSize="13px" color="#98a1b2" fontWeight="500">
+          <Text ml="auto" fontSize="13px" color="app.faint" fontWeight="500">
             {list.total} {list.total === 1 ? 'lead' : 'leads'}
           </Text>
         </Flex>
 
         {/* Column headers */}
         {!list.loading && list.data.length > 0 && (
-          <Flex px="20px" py="10px" bg="#fafbfd" borderBottom="1px solid #f0f2f6" gap="0">
+          <Flex px="20px" py="10px" bg="app.surfaceAlt" borderBottom="1px solid" borderColor="app.border" gap="0">
             <Box w="40px" flexShrink={0} display="flex" alignItems="center">
               <Checkbox
                 isChecked={list.selectedIds.size === list.data.length && list.data.length > 0}
                 onChange={list.toggleSelectAll}
                 size="sm"
-                sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: '#d5dae5', w: '16px', h: '16px', _checked: { bg: '#1a2035', borderColor: '#1a2035' } } }}
+                sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: 'app.border', w: '16px', h: '16px', _checked: { bg: 'navy.600', borderColor: 'navy.600' } } }}
               />
             </Box>
             {COLS.map((col) => (
               <Box key={col.key} w={col.key === 'lead' ? 'auto' : col.w} flex={col.key === 'lead' ? '1' : undefined} minW={col.key === 'lead' ? col.minW : undefined} flexShrink={col.key === 'lead' ? 1 : 0}>
-                <Text fontSize="11px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">{col.label}</Text>
+                <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.06em">{col.label}</Text>
               </Box>
             ))}
           </Flex>
         )}
 
         {list.loading ? (
-          <Flex py="72px" justify="center"><Spinner size="md" color="#1a2035" thickness="2px" /></Flex>
+          <Flex py="72px" justify="center"><Spinner size="md" color="navy.600" thickness="2px" /></Flex>
         ) : list.data.length === 0 ? (
-          <EmptyState icon={UsersRoundIcon} title="No leads found" description="Try adjusting your search or create a new lead." action={<Button size="sm" bg="#1a2035" color="white" borderRadius="10px" fontSize="13px" leftIcon={<PlusIcon size={15} />} onClick={openCreate}>New lead</Button>} />
+          <EmptyState icon={UsersRoundIcon} title="No leads found" description="Try adjusting your search or create a new lead." action={<Button size="sm" bg="navy.600" color="white" borderRadius="10px" fontSize="13px" leftIcon={<PlusIcon size={15} />} onClick={openCreate}>New lead</Button>} />
         ) : (
           <Box>
             {list.data.map((lead, idx) => {
@@ -431,8 +433,9 @@ export function Leads() {
                   px="20px"
                   py="0"
                   align="center"
-                  borderBottom={isLast ? 'none' : '1px solid #f5f6fa'}
-                  _hover={{ bg: '#fafbfd' }}
+                  borderBottom={isLast ? 'none' : '1px solid'}
+                  borderColor="app.border"
+                  _hover={{ bg: 'app.surfaceAlt' }}
                   cursor="pointer"
                   transition="background .12s ease"
                   onClick={() => { setDetailLead(lead); detailModal.onOpen(); }}
@@ -444,7 +447,7 @@ export function Leads() {
                       isChecked={list.selectedIds.has(lead.id)}
                       onChange={() => list.toggleSelect(lead.id)}
                       size="sm"
-                      sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: '#d5dae5', w: '16px', h: '16px', _checked: { bg: '#1a2035', borderColor: '#1a2035' } } }}
+                      sx={{ '& .chakra-checkbox__control': { borderRadius: '5px', borderColor: 'app.border', w: '16px', h: '16px', _checked: { bg: 'navy.600', borderColor: 'navy.600' } } }}
                     />
                   </Box>
 
@@ -463,8 +466,8 @@ export function Leads() {
                         flexShrink={0}
                       />
                       <Box overflow="hidden">
-                        <Text fontSize="13px" fontWeight="600" color="#1d273d" noOfLines={1}>{person?.name ?? 'Unknown'}</Text>
-                        <Text fontSize="11px" color="#98a1b2" fontWeight="400" noOfLines={1}>{person?.company ?? '—'}</Text>
+                        <Text fontSize="13px" fontWeight="600" color="app.text" noOfLines={1}>{person?.name ?? 'Unknown'}</Text>
+                        <Text fontSize="11px" color="app.faint" fontWeight="400" noOfLines={1}>{person?.company ?? '—'}</Text>
                       </Box>
                     </Flex>
                   </Box>
@@ -488,13 +491,13 @@ export function Leads() {
                   <Box w="160px" flexShrink={0} display={{ base: 'none', lg: 'block' }}>
                     <Flex align="center" gap="8px">
                       <Avatar size="xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="9px" fontWeight="800" w="26px" h="26px" />
-                      <Text fontSize="12px" color="#46506a" fontWeight="500">{owner.name}</Text>
+                      <Text fontSize="12px" color="app.subtle" fontWeight="500">{owner.name}</Text>
                     </Flex>
                   </Box>
 
                   {/* Value */}
                   <Box w="110px" flexShrink={0}>
-                    <Text fontSize="13px" fontWeight="700" color="#1d273d" textAlign="right" pr="8px">
+                    <Text fontSize="13px" fontWeight="700" color="app.text" textAlign="right" pr="8px">
                       ${(lead.value ?? 0).toLocaleString()}
                     </Text>
                   </Box>
@@ -508,22 +511,23 @@ export function Leads() {
                         icon={<MoreHorizontalIcon size={16} />}
                         variant="ghost"
                         size="sm"
-                        color="#b0b8cc"
+                        color="app.faint"
                         borderRadius="8px"
-                        _hover={{ bg: '#f0f2f6', color: '#1d273d' }}
+                        _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }}
                       />
                       <MenuList
-                        bg="white"
-                        border="1px solid #edf0f5"
+                        bg="app.surface"
+                        border="1px solid"
+                        borderColor="app.border"
                         borderRadius="12px"
                         boxShadow="0 8px 24px rgba(0,0,0,0.10)"
                         py="6px"
                         minW="160px">
-                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<UserPlusIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => openEdit(lead)}>Edit lead</MenuItem>
-                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<CheckCircleIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
-                        <MenuItem bg="white" fontSize="13px" color="#1d273d" icon={<CalendarPlusIcon size={14} />} _hover={{ bg: '#f8f9fc' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={async () => { const d = new Date(); d.setDate(d.getDate() + 1); await mutation.update(lead.id, { follow_up_date: d.toISOString().split('T')[0] }); toast({ title: 'Follow-up scheduled', status: 'success', duration: 1800, position: 'top-right' }); }}>Schedule follow-up</MenuItem>
-                        <Box h="1px" bg="#f0f2f6" mx="10px" my="4px" />
-                        <MenuItem bg="white" fontSize="13px" color="#c23c3c" icon={<Trash2Icon size={14} />} _hover={{ bg: '#fde8e8' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
+                        <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<UserPlusIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => openEdit(lead)}>Edit lead</MenuItem>
+                        <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CheckCircleIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => qualifyLead(lead)}>Qualify</MenuItem>
+                        <MenuItem bg="app.surface" fontSize="13px" color="app.text" icon={<CalendarPlusIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={async () => { const d = new Date(); d.setDate(d.getDate() + 1); await mutation.update(lead.id, { follow_up_date: d.toISOString().split('T')[0] }); toast({ title: 'Follow-up scheduled', status: 'success', duration: 1800, position: 'top-right' }); }}>Schedule follow-up</MenuItem>
+                        <Box h="1px" bg="app.border" mx="10px" my="4px" />
+                        <MenuItem bg="app.surface" fontSize="13px" color="#c23c3c" icon={<Trash2Icon size={14} />} _hover={{ bg: '#fde8e8' }} borderRadius="7px" mx="4px" w="calc(100% - 8px)" onClick={() => { setDeleteId(lead.id); confirmDel.onOpen(); }}>Delete</MenuItem>
                       </MenuList>
                     </Menu>
                   </Box>
@@ -532,9 +536,9 @@ export function Leads() {
             })}
 
             {/* Pagination */}
-            <Box px="20px" py="12px" borderTop="1px solid #f0f2f6">
+            <Box px="20px" py="12px" borderTop="1px solid" borderColor="app.border">
               <Flex align="center" justify="space-between">
-                <Text fontSize="13px" color="#98a1b2">
+                <Text fontSize="13px" color="app.faint">
                   {list.page * list.pageSize + 1}–{Math.min((list.page + 1) * list.pageSize, list.total)} of {list.total}
                 </Text>
                 <Flex align="center" gap="6px">
@@ -547,10 +551,10 @@ export function Leads() {
                     variant="ghost"
                     color="#6b7488"
                     fontSize="16px"
-                    _hover={{ bg: '#f0f2f6' }}
+                    _hover={{ bg: 'app.surfaceAlt' }}
                     isDisabled={list.page === 0}
                     onClick={() => list.setPage(list.page - 1)}>‹</Button>
-                  <Text fontSize="13px" color="#46506a" fontWeight="500" px="8px">{list.page + 1} / {Math.max(1, Math.ceil(list.total / list.pageSize))}</Text>
+                  <Text fontSize="13px" color="app.subtle" fontWeight="500" px="8px">{list.page + 1} / {Math.max(1, Math.ceil(list.total / list.pageSize))}</Text>
                   <Button
                     size="sm"
                     h="32px"
@@ -560,7 +564,7 @@ export function Leads() {
                     variant="ghost"
                     color="#6b7488"
                     fontSize="16px"
-                    _hover={{ bg: '#f0f2f6' }}
+                    _hover={{ bg: 'app.surfaceAlt' }}
                     isDisabled={(list.page + 1) * list.pageSize >= list.total}
                     onClick={() => list.setPage(list.page + 1)}>›</Button>
                 </Flex>
@@ -573,49 +577,49 @@ export function Leads() {
       {/* Create/Edit Modal */}
       <FormModal isOpen={formModal.isOpen} onClose={formModal.onClose} title={editing ? 'Edit lead' : 'New lead'} subtitle={editing ? 'Update lead information' : 'Capture a new inbound lead'} loading={mutation.loading} onSubmit={handleSubmit} submitLabel={editing ? 'Update' : 'Create'}>
         <FormControl isInvalid={!!formErrors.name}>
-          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Contact name</FormLabel>
-          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Contact name</FormLabel>
+          <Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Ava Williams" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           {formErrors.name && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.name}</Text>}
         </FormControl>
         <FormControl isInvalid={!!formErrors.company}>
-          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Company</FormLabel>
-          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Company</FormLabel>
+          <Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} placeholder="Lattice Labs" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           {formErrors.company && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.company}</Text>}
         </FormControl>
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl isInvalid={!!formErrors.email}>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Email</FormLabel>
-            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Email</FormLabel>
+            <Input value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="ava@company.com" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
             {formErrors.email && <Text fontSize="11px" color="#c23c3c" mt="4px">{formErrors.email}</Text>}
           </FormControl>
           <FormControl>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Phone</FormLabel>
-            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Phone</FormLabel>
+            <Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} placeholder="+1 415 220 1188" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           </FormControl>
         </Grid>
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Source</FormLabel>
-            <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Source</FormLabel>
+            <Select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">{SOURCE_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
           </FormControl>
           <FormControl>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Status</FormLabel>
-            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Status</FormLabel>
+            <Select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">{STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s}</option>)}</Select>
           </FormControl>
         </Grid>
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Owner</FormLabel>
-            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px">{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Owner</FormLabel>
+            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
           </FormControl>
           <FormControl>
-            <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Deal value ($)</FormLabel>
-            <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+            <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Deal value ($)</FormLabel>
+            <Input type="number" value={form.value} onChange={(e) => setForm({ ...form, value: Number(e.target.value) })} placeholder="18500" size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
           </FormControl>
         </Grid>
         <FormControl>
-          <FormLabel fontSize="12px" fontWeight="600" color="#46506a">Follow-up date</FormLabel>
-          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="#edf0f5" fontSize="13px" _focus={{ borderColor: '#1a2035', boxShadow: '0 0 0 3px rgba(26,32,53,0.08)' }} />
+          <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Follow-up date</FormLabel>
+          <Input type="date" value={form.follow_up_date} onChange={(e) => setForm({ ...form, follow_up_date: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px" _focus={{ borderColor: 'navy.600', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }} />
         </FormControl>
       </FormModal>
 
@@ -625,7 +629,7 @@ export function Leads() {
       {/* Detail Modal */}
       <Modal isOpen={detailModal.isOpen} onClose={detailModal.onClose} size="md" isCentered>
         <ModalOverlay backdropFilter="blur(6px)" bg="rgba(15,21,35,0.4)" />
-        <ModalContent bg="white" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)">
+        <ModalContent bg="app.surface" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)">
           {detailLead && (() => {
             const p = personById(detailLead.person_id);
             const owner = ownerById(detailLead.owner_id);
@@ -633,12 +637,12 @@ export function Leads() {
             return (
               <>
                 <ModalHeader p="0">
-                  <Box px="24px" pt="24px" pb="20px" borderBottom="1px solid #f0f2f6">
+                  <Box px="24px" pt="24px" pb="20px" borderBottom="1px solid" borderColor="app.border">
                     <Flex align="center" gap="14px">
                       <Avatar size="md" name={p?.name ?? '?'} bg={p?.avatar_color ?? '#d8e7ff'} color="#46506a" fontSize="14px" fontWeight="800" w="48px" h="48px" />
                       <Box flex="1">
-                        <Text fontSize="17px" fontWeight="800" color="#1d273d" lineHeight="1.2">{p?.name ?? 'Unknown lead'}</Text>
-                        <Text fontSize="12px" color="#98a1b2" mt="2px">{p?.company ?? '—'}</Text>
+                        <Text fontSize="17px" fontWeight="800" color="app.text" lineHeight="1.2">{p?.name ?? 'Unknown lead'}</Text>
+                        <Text fontSize="12px" color="app.faint" mt="2px">{p?.company ?? '—'}</Text>
                       </Box>
                       <Flex align="center" gap="5px" px="10px" py="5px" bg={cfg.bg} borderRadius="full">
                         <Box w="6px" h="6px" borderRadius="full" bg={cfg.dot} />
@@ -647,39 +651,39 @@ export function Leads() {
                     </Flex>
                   </Box>
                 </ModalHeader>
-                <ModalCloseButton top="20px" right="20px" color="#98a1b2" _hover={{ bg: '#f0f2f6', color: '#1d273d' }} borderRadius="8px" />
+                <ModalCloseButton top="20px" right="20px" color="app.faint" _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }} borderRadius="8px" />
                 <ModalBody px="24px" py="20px">
                   <Stack spacing="16px">
                     {/* Score section */}
                     <Grid templateColumns="1fr 1fr" gap="12px">
-                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
-                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">LEAD SCORE</Text>
-                        <Text mt="6px" fontSize="22px" fontWeight="900" color="#1d273d">{detailLead.score}<Text as="span" fontSize="13px" color="#98a1b2" fontWeight="500">/100</Text></Text>
+                      <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
+                        <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">LEAD SCORE</Text>
+                        <Text mt="6px" fontSize="22px" fontWeight="900" color="app.text">{detailLead.score}<Text as="span" fontSize="13px" color="app.faint" fontWeight="500">/100</Text></Text>
                       </Box>
-                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
-                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">VALUE</Text>
-                        <Text mt="6px" fontSize="22px" fontWeight="900" color="#1d273d">${(detailLead.value ?? 0).toLocaleString()}</Text>
+                      <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
+                        <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">VALUE</Text>
+                        <Text mt="6px" fontSize="22px" fontWeight="900" color="app.text">${(detailLead.value ?? 0).toLocaleString()}</Text>
                       </Box>
                     </Grid>
 
                     {/* AI Score bar */}
-                    <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
+                    <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
                       <Flex justify="space-between" align="center" mb="8px">
-                        <Text fontSize="11px" fontWeight="700" color="#46506a">AI CONFIDENCE SCORE</Text>
+                        <Text fontSize="11px" fontWeight="700" color="app.subtle">AI CONFIDENCE SCORE</Text>
                         <Text fontSize="13px" fontWeight="800" color={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'}>{detailLead.ai_score}%</Text>
                       </Flex>
-                      <Box w="full" h="8px" bg="#edf0f5" borderRadius="full" overflow="hidden">
+                      <Box w="full" h="8px" bg="app.border" borderRadius="full" overflow="hidden">
                         <Box h="full" bg={detailLead.ai_score >= 70 ? '#1c8a5c' : detailLead.ai_score >= 40 ? '#b5760f' : '#c23c3c'} borderRadius="full" style={{ width: `${detailLead.ai_score}%` }} transition="width .4s ease" />
                       </Box>
                     </Box>
 
                     {/* Source + contact */}
                     {p && (
-                      <Box p="16px" bg="#fafbfd" borderRadius="14px" border="1px solid #f0f2f6">
-                        <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em" mb="10px">CONTACT INFO</Text>
+                      <Box p="16px" bg="app.surfaceAlt" borderRadius="14px" border="1px solid" borderColor="app.border">
+                        <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em" mb="10px">CONTACT INFO</Text>
                         <Stack spacing="6px">
-                          {p.email && <Flex align="center" gap="8px"><Icon as={MailIcon} boxSize="13px" color="#98a1b2" /><Text fontSize="12px" color="#46506a">{p.email}</Text></Flex>}
-                          {p.phone && <Flex align="center" gap="8px"><Icon as={PhoneIcon} boxSize="13px" color="#98a1b2" /><Text fontSize="12px" color="#46506a">{p.phone}</Text></Flex>}
+                          {p.email && <Flex align="center" gap="8px"><Icon as={MailIcon} boxSize="13px" color="app.faint" /><Text fontSize="12px" color="app.subtle">{p.email}</Text></Flex>}
+                          {p.phone && <Flex align="center" gap="8px"><Icon as={PhoneIcon} boxSize="13px" color="app.faint" /><Text fontSize="12px" color="app.subtle">{p.phone}</Text></Flex>}
                         </Stack>
                       </Box>
                     )}
@@ -687,16 +691,16 @@ export function Leads() {
                     <Grid templateColumns="1fr 1fr" gap="10px">
                       {[['OWNER', detailLead.owner_name || '—'], ['SOURCE', detailLead.source], ['FOLLOW-UP', detailLead.follow_up_date ?? '—'], ['CREATED', new Date(detailLead.created_at ?? '').toLocaleDateString()]].map(([label, val]) => (
                         <Box key={label}>
-                          <Text fontSize="10px" fontWeight="700" color="#98a1b2" letterSpacing="0.06em">{label}</Text>
-                          <Text fontSize="13px" fontWeight="600" color="#1d273d" mt="2px">{val}</Text>
+                          <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">{label}</Text>
+                          <Text fontSize="13px" fontWeight="600" color="app.text" mt="2px">{val}</Text>
                         </Box>
                       ))}
                     </Grid>
 
                     <Flex gap="8px" pt="4px">
-                      <Button flex="1" h="38px" borderRadius="10px" bg="#1a2035" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#253050' }} onClick={() => { detailModal.onClose(); openEdit(detailLead); }}>Edit lead</Button>
+                      <Button flex="1" h="38px" borderRadius="10px" bg="navy.600" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: 'navy.500' }} onClick={() => { detailModal.onClose(); openEdit(detailLead); }}>Edit lead</Button>
                       {detailLead.status !== 'Qualified' && detailLead.status !== 'Won' && (
-                        <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="#edf0f5" color="#1d273d" fontSize="13px" fontWeight="600" leftIcon={<CheckCircleIcon size={14} />} _hover={{ bg: '#f8f9fc' }} onClick={() => { detailModal.onClose(); qualifyLead(detailLead); }}>Qualify</Button>
+                        <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="app.border" color="app.text" fontSize="13px" fontWeight="600" leftIcon={<CheckCircleIcon size={14} />} _hover={{ bg: 'app.surfaceAlt' }} onClick={() => { detailModal.onClose(); qualifyLead(detailLead); }}>Qualify</Button>
                       )}
                     </Flex>
                   </Stack>
@@ -710,32 +714,32 @@ export function Leads() {
       {/* Duplicate Detection Modal */}
       <Modal isOpen={dupModal.isOpen} onClose={dupModal.onClose} size="lg" isCentered>
         <ModalOverlay backdropFilter="blur(6px)" bg="rgba(15,21,35,0.4)" />
-        <ModalContent bg="white" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)" maxH="80vh">
+        <ModalContent bg="app.surface" borderRadius="20px" overflow="hidden" boxShadow="0 20px 60px rgba(0,0,0,0.15)" maxH="80vh">
           <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="16px">
-            <Flex align="center" gap="10px"><Icon as={GitMergeIcon} boxSize="18px" color="#e9683f" /><Box><Text fontSize="16px" fontWeight="800" fontFamily="'Plus Jakarta Sans', sans-serif">Duplicate Management</Text><Text fontSize="11px" color="#98a1b2" fontWeight="400">Detect and merge similar lead records</Text></Box></Flex>
+            <Flex align="center" gap="10px"><Icon as={GitMergeIcon} boxSize="18px" color="#e9683f" /><Box><Text fontSize="16px" fontWeight="800" fontFamily="'Plus Jakarta Sans', sans-serif">Duplicate Management</Text><Text fontSize="11px" color="app.faint" fontWeight="400">Detect and merge similar lead records</Text></Box></Flex>
           </ModalHeader>
-          <ModalCloseButton top="20px" right="20px" color="#98a1b2" _hover={{ bg: '#f0f2f6', color: '#1d273d' }} borderRadius="8px" />
+          <ModalCloseButton top="20px" right="20px" color="app.faint" _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }} borderRadius="8px" />
           <ModalBody py="20px" overflowY="auto">
             {duplicates.length === 0 ? (
-              <Flex direction="column" align="center" py="40px"><Icon as={CheckCircleIcon} boxSize="32px" color="#1c8a5c" /><Text mt="12px" fontSize="14px" fontWeight="700" color="#1d273d">No duplicates found</Text><Text fontSize="12px" color="#98a1b2">All lead records are unique.</Text></Flex>
+              <Flex direction="column" align="center" py="40px"><Icon as={CheckCircleIcon} boxSize="32px" color="#1c8a5c" /><Text mt="12px" fontSize="14px" fontWeight="700" color="app.text">No duplicates found</Text><Text fontSize="12px" color="app.faint">All lead records are unique.</Text></Flex>
             ) : (
               <Stack spacing="16px">
                 {duplicates.map((group) => (
-                  <Box key={group.key} p="14px" bg="#fafbfd" borderRadius="12px" border="1px solid #f0f2f6">
+                  <Box key={group.key} p="14px" bg="app.surfaceAlt" borderRadius="12px" border="1px solid" borderColor="app.border">
                     <Flex align="center" gap="8px" mb="10px">
                       <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg="#fef3e0" color="#b5760f" textTransform="capitalize">{group.key.split(':')[0]}</Badge>
-                      <Text fontSize="11px" color="#98a1b2">{group.key.split(':')[1]}</Text>
-                      <Text fontSize="11px" fontWeight="600" color="#1d273d" ml="auto">{group.leads.length} records</Text>
+                      <Text fontSize="11px" color="app.faint">{group.key.split(':')[1]}</Text>
+                      <Text fontSize="11px" fontWeight="600" color="app.text" ml="auto">{group.leads.length} records</Text>
                     </Flex>
                     {group.leads.map((dupLead, i) => (
                       <Flex key={dupLead.id} align="center" gap="10px" py="8px" px="6px" bg={i === 0 ? 'rgba(28,138,92,0.05)' : 'transparent'} borderRadius="8px">
                         <Box w="20px" flexShrink={0}>{i === 0 && <Text fontSize="9px" fontWeight="800" color="#1c8a5c">MASTER</Text>}</Box>
                         <Avatar size="2xs" name={dupLead.person?.name ?? '?'} bg={dupLead.person?.avatar_color ?? '#d8e7ff'} color="#46506a" />
-                        <Box flex="1"><Text fontSize="12px" fontWeight="600" noOfLines={1}>{dupLead.person?.name ?? 'Unknown'}</Text><Text fontSize="10px" color="#98a1b2">{dupLead.person?.company ?? '—'} · Score {dupLead.ai_score}</Text></Box>
+                        <Box flex="1"><Text fontSize="12px" fontWeight="600" color="app.text" noOfLines={1}>{dupLead.person?.name ?? 'Unknown'}</Text><Text fontSize="10px" color="app.faint">{dupLead.person?.company ?? '—'} · Score {dupLead.ai_score}</Text></Box>
                         <StatusPill status={dupLead.status} />
                       </Flex>
                     ))}
-                    <Button mt="8px" size="xs" w="full" bg="#1a2035" color="white" borderRadius="8px" fontSize="11px" fontWeight="600" _hover={{ bg: '#253050' }} leftIcon={<GitMergeIcon size={12} />} onClick={() => mergeLeads(group)}>Merge into master record</Button>
+                    <Button mt="8px" size="xs" w="full" bg="navy.600" color="white" borderRadius="8px" fontSize="11px" fontWeight="600" _hover={{ bg: 'navy.500' }} leftIcon={<GitMergeIcon size={12} />} onClick={() => mergeLeads(group)}>Merge into master record</Button>
                   </Box>
                 ))}
               </Stack>

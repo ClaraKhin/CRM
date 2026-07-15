@@ -28,7 +28,6 @@ import {
   FileTextIcon,
   MailIcon,
   RefreshCwIcon,
-  SearchIcon,
   SendIcon,
   SparklesIcon,
   Trash2Icon,
@@ -63,12 +62,12 @@ const categoryIcon: Record<string, React.ElementType> = {
 };
 
 const suggestions = [
-  { label: 'Summarize today\'s meetings', tool: 'Google Calendar' },
-  { label: 'Which deals are at risk?', tool: 'CRM Database' },
-  { label: 'Generate a Q2 forecast', tool: 'CRM Database' },
-  { label: 'Show overdue invoices', tool: 'CRM Database' },
-  { label: 'Search customer records', tool: 'CRM Database' },
-  { label: 'Summarize latest email conversation', tool: 'Gmail' }
+  { label: 'Summarize today\'s meetings', tool: 'Google Calendar', icon: CalendarPlusIcon },
+  { label: 'Which deals are at risk?', tool: 'CRM Database', icon: DatabaseIcon },
+  { label: 'Generate a Q2 forecast', tool: 'CRM Database', icon: ZapIcon },
+  { label: 'Show overdue invoices', tool: 'CRM Database', icon: FileTextIcon },
+  { label: 'Search customer records', tool: 'CRM Database', icon: DatabaseIcon },
+  { label: 'Summarize latest email conversation', tool: 'Gmail', icon: MailIcon }
 ];
 
 const actionChips = [
@@ -89,6 +88,7 @@ export function Assistant() {
   const [showLogs, setShowLogs] = useState(false);
   const [clearChat, setClearChat] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const toast = useToast();
 
   const loadServers = useCallback(async () => {
@@ -104,10 +104,9 @@ export function Assistant() {
     const { data } = await supabase.from('chat_messages').select('*').eq('user_id', session.user.id).order('created_at', { ascending: true }).limit(50);
     const msgs = (data ?? []) as ChatMessage[];
     if (msgs.length === 0) {
-      // Seed a welcome message
       const welcome = await supabase.from('chat_messages').insert({
         user_id: session.user.id, role: 'ai',
-        content: `Good morning ${profile?.full_name?.split(' ')[0] ?? 'there'}! I'm your AI sales copilot. I can search your CRM, draft emails, schedule meetings, and analyze your pipeline. Try one of the suggestions below or ask me anything.`
+        content: `Hi ${profile?.full_name?.split(' ')[0] ?? 'there'}! I'm your AI sales copilot. I can search your CRM, draft emails, schedule meetings, and analyze your pipeline. How can I help you today?`
       }).select().maybeSingle();
       if (welcome.data) setMessages([welcome.data as ChatMessage]);
     } else {
@@ -124,7 +123,6 @@ export function Assistant() {
 
   useEffect(() => { loadServers(); loadMessages(); loadToolLogs(); }, [loadServers, loadMessages, loadToolLogs]);
 
-  // Auto-scroll to bottom on new messages
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
@@ -148,7 +146,6 @@ export function Assistant() {
     loadToolLogs();
   };
 
-  // Real CRM data queries — the AI "executes MCP tools" by querying the database
   const executeTool = async (tool: string, action: string, input: Record<string, unknown> = {}): Promise<{ text: string; status: 'success' | 'error' }> => {
     const start = Date.now();
     try {
@@ -228,7 +225,7 @@ export function Assistant() {
         resultText = `I can generate a quote for you. You have ${count} contacts available. Navigate to the Quotes page and click "New quote" to create one, or tell me which customer and amount.`;
         outputData = { contacts: count };
       } else {
-        resultText = 'I\'m not sure how to handle that request yet, but I can search customers, summarize meetings, check overdue invoices, forecast revenue, and analyze your pipeline. Try one of the suggestions!';
+        resultText = 'I can search customers, summarize meetings, check overdue invoices, forecast revenue, and analyze your pipeline. Try one of the suggestions below!';
       }
 
       const latency = Date.now() - start;
@@ -241,7 +238,6 @@ export function Assistant() {
     }
   };
 
-  // Map natural language to tool actions
   const resolveAction = (text: string): { tool: string; action: string } => {
     const lower = text.toLowerCase();
     if (lower.includes('meeting') && (lower.includes('today') || lower.includes('summar'))) return { tool: 'Google Calendar', action: 'summarize_meetings' };
@@ -260,18 +256,14 @@ export function Assistant() {
     const value = text.trim();
     if (!value || thinking) return;
 
-    // Persist user message
     const userMsg = await persistMessage('user', value);
     if (userMsg) setMessages((prev) => [...prev, userMsg]);
     setInput('');
     setThinking(true);
 
-    // Resolve which MCP tool to use
     const { tool, action } = resolveAction(value);
-
-    // Check if the required MCP server is connected
     const server = servers.find((s) => s.name === tool || s.category === tool);
-    const serverConnected = server?.connected ?? (tool === 'CRM Database'); // CRM DB is always available
+    const serverConnected = server?.connected ?? (tool === 'CRM Database');
 
     if (!serverConnected) {
       setThinking(false);
@@ -281,9 +273,7 @@ export function Assistant() {
       return;
     }
 
-    // Execute the tool
     const result = await executeTool(tool, action, { query: value });
-
     setThinking(false);
     const aiMsg = await persistMessage('ai', result.text, tool, result.status);
     if (aiMsg) setMessages((prev) => [...prev, aiMsg]);
@@ -295,7 +285,6 @@ export function Assistant() {
     setServers((prev) => prev.map((s) => s.id === id ? { ...s, connected: !s.connected } : s));
     await supabase.from('mcp_servers').update({ connected: !server.connected }).eq('id', id).eq('user_id', session!.user.id);
     toast({ title: `${server.name} ${server.connected ? 'disconnected' : 'connected'}`, status: 'info', duration: 1600, position: 'top-right' });
-    // Log the toggle as an MCP tool execution
     await logToolExecution(server.name, 'toggle_connection', { connected: !server.connected }, { connected: !server.connected }, 'success', 0);
   };
 
@@ -304,7 +293,6 @@ export function Assistant() {
     await supabase.from('chat_messages').delete().eq('user_id', session.user.id);
     setMessages([]);
     setClearChat(false);
-    // Re-seed welcome
     loadMessages();
     toast({ title: 'Chat cleared', status: 'success', duration: 1600, position: 'top-right' });
   };
@@ -320,6 +308,12 @@ export function Assistant() {
     }
   };
 
+  // Group servers by category
+  const serverCategories = servers.reduce((acc, s) => {
+    (acc[s.category] ??= []).push(s);
+    return acc;
+  }, {} as Record<string, McpServer[]>);
+
   return (
     <>
       <PageHeader
@@ -331,49 +325,63 @@ export function Assistant() {
 
       <Grid templateColumns={{ base: '1fr', xl: 'minmax(0, 1.6fr) minmax(300px, 1fr)' }} gap="18px">
         {/* Chat panel */}
-        <Card display="flex" flexDirection="column" h={{ base: 'auto', xl: '640px' }}>
-          <CardHeader
-            title="Copilot chat"
-            subtitle={`Connected to ${connectedCount} tool${connectedCount !== 1 ? 's' : ''}`}
-            right={
-              <Flex align="center" gap="8px">
-                <Box w="7px" h="7px" borderRadius="full" bg={connectedCount > 0 ? '#2d9c79' : '#c7ccd6'} />
-                <Icon as={SparklesIcon} boxSize="16px" color="#e9683f" />
+        <Card display="flex" flexDirection="column" h={{ base: 'auto', xl: '660px' }} overflow="hidden">
+          {/* Header bar */}
+          <Flex align="center" gap="11px" px="20px" py="16px" borderBottom="1px solid" borderColor="app.border" bg="app.surfaceAlt">
+            <Flex w="36px" h="36px" borderRadius="11px" bg="navy.600" align="center" justify="center" flexShrink={0}>
+              <Icon as={BotIcon} boxSize="18px" color="white" />
+            </Flex>
+            <Box flex="1">
+              <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="15px">Copilot chat</Text>
+              <Flex align="center" gap="5px" mt="1px">
+                <Box w="6px" h="6px" borderRadius="full" bg={connectedCount > 0 ? 'green.400' : 'app.faint'} />
+                <Text fontSize="11px" color="app.subtle">{connectedCount} tool{connectedCount !== 1 ? 's' : ''} connected</Text>
               </Flex>
-            }
-          />
+            </Box>
+            <Icon as={SparklesIcon} boxSize="18px" color="brand.500" />
+          </Flex>
 
           {/* Messages */}
-          <Box ref={scrollRef} flex="1" overflowY="auto" px="18px" py="16px">
+          <Box ref={scrollRef} flex="1" overflowY="auto" px={{ base: '14px', md: '20px' }} py="18px" sx={{ scrollbarWidth: 'thin' }}>
             {loadingHistory ? (
-              <Flex py="40px" justify="center"><Spinner color="brand.500" size="sm" /></Flex>
+              <Flex py="60px" justify="center" direction="column" align="center" gap="10px">
+                <Spinner color="brand.500" size="sm" />
+                <Text fontSize="11px" color="app.faint">Loading conversation...</Text>
+              </Flex>
             ) : (
-              <Stack spacing="14px">
+              <Stack spacing="16px">
                 {messages.map((msg) => (
                   <Flex key={msg.id} gap="10px" flexDirection={msg.role === 'user' ? 'row-reverse' : 'row'}>
                     {msg.role === 'ai' ? (
-                      <Flex w="30px" h="30px" borderRadius="9px" bg="navy.600" color="white" align="center" justify="center" flexShrink={0}>
-                        <Icon as={BotIcon} boxSize="15px" />
+                      <Flex w="32px" h="32px" borderRadius="10px" bg="navy.600" color="white" align="center" justify="center" flexShrink={0}>
+                        <Icon as={BotIcon} boxSize="16px" />
                       </Flex>
                     ) : (
-                      <Avatar size="sm" name={displayName} bg={avatarColor} color="#46506a" fontSize="10px" flexShrink={0} />
+                      <Avatar size="sm" name={displayName} bg={avatarColor} color="app.subtle" fontSize="10px" flexShrink={0} w="32px" h="32px" />
                     )}
-                    <Box maxW="80%">
+                    <Box maxW="82%">
                       {msg.tool_used && (
-                        <Flex align="center" gap="5px" mb="4px" flexDirection={msg.role === 'user' ? 'row-reverse' : 'row'}>
-                          <Badge fontSize="8px" borderRadius="full" px="6px" py="1px" bg={msg.tool_status === 'error' ? '#fbe0e0' : '#dcf3e8'} color={msg.tool_status === 'error' ? '#c23c3c' : '#1c8a5c'} textTransform="none">
+                        <Flex align="center" gap="5px" mb="5px" flexDirection={msg.role === 'user' ? 'row-reverse' : 'row'}>
+                          <Badge fontSize="8px" borderRadius="full" px="7px" py="2px" bg={msg.tool_status === 'error' ? 'red.50' : 'green.50'} color={msg.tool_status === 'error' ? 'red.500' : 'green.600'} textTransform="none" fontWeight="700">
                             <Flex align="center" gap="3px">
                               <Icon as={ZapIcon} boxSize="8px" />
                               {msg.tool_used}
                             </Flex>
                           </Badge>
-                          {msg.tool_status === 'success' && <Icon as={CheckCircleIcon} boxSize="10px" color="#1c8a5c" />}
+                          {msg.tool_status === 'success' && <Icon as={CheckCircleIcon} boxSize="10px" color="green.500" />}
                         </Flex>
                       )}
-                      <Box bg={msg.role === 'user' ? 'brand.500' : 'app.surfaceAlt'} color={msg.role === 'user' ? 'white' : 'app.text'} px="13px" py="10px" borderRadius="13px">
-                        <Text fontSize="12px" lineHeight="1.55" whiteSpace="pre-wrap">{msg.content}</Text>
+                      <Box
+                        bg={msg.role === 'user' ? 'brand.500' : 'app.surfaceAlt'}
+                        color={msg.role === 'user' ? 'white' : 'app.text'}
+                        px="14px"
+                        py="11px"
+                        borderRadius={msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px'}
+                        boxShadow={msg.role === 'user' ? '0 2px 8px rgba(233,104,63,0.15)' : 'none'}
+                      >
+                        <Text fontSize="12.5px" lineHeight="1.6" whiteSpace="pre-wrap">{msg.content}</Text>
                       </Box>
-                      <Text fontSize="9px" color="app.faint" mt="3px" textAlign={msg.role === 'user' ? 'right' : 'left'}>
+                      <Text fontSize="9px" color="app.faint" mt="4px" textAlign={msg.role === 'user' ? 'right' : 'left'}>
                         {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     </Box>
@@ -381,12 +389,16 @@ export function Assistant() {
                 ))}
                 {thinking && (
                   <Flex gap="10px">
-                    <Flex w="30px" h="30px" borderRadius="9px" bg="navy.600" color="white" align="center" justify="center" flexShrink={0}>
-                      <Icon as={BotIcon} boxSize="15px" />
+                    <Flex w="32px" h="32px" borderRadius="10px" bg="navy.600" color="white" align="center" justify="center" flexShrink={0}>
+                      <Icon as={BotIcon} boxSize="16px" />
                     </Flex>
-                    <Box bg="app.surfaceAlt" px="13px" py="10px" borderRadius="13px">
-                      <Flex align="center" gap="8px">
-                        <Spinner size="xs" color="app.faint" />
+                    <Box bg="app.surfaceAlt" px="14px" py="12px" borderRadius="16px 16px 16px 4px">
+                      <Flex align="center" gap="10px">
+                        <Flex gap="4px">
+                          <Box w="7px" h="7px" borderRadius="full" bg="app.subtle" opacity={0.5} animation="pulsethink 1.4s ease-in-out infinite" />
+                          <Box w="7px" h="7px" borderRadius="full" bg="app.subtle" opacity={0.5} animation="pulsethink 1.4s ease-in-out 0.2s infinite" />
+                          <Box w="7px" h="7px" borderRadius="full" bg="app.subtle" opacity={0.5} animation="pulsethink 1.4s ease-in-out 0.4s infinite" />
+                        </Flex>
                         <Text fontSize="11px" color="app.subtle">Querying MCP tools...</Text>
                       </Flex>
                     </Box>
@@ -396,24 +408,64 @@ export function Assistant() {
             )}
           </Box>
 
-          {/* Action chips */}
-          <Box px="18px" pt="10px">
-            <Flex gap="7px" flexWrap="wrap" mb="10px">
-              {actionChips.map((chip) => (
-                <Button key={chip.label} size="xs" variant="outline" borderColor="app.border" borderRadius="full" fontSize="11px" leftIcon={<Icon as={chip.icon} boxSize="12px" />} onClick={() => send(chip.label)} isDisabled={thinking}>
-                  {chip.label}
-                </Button>
-              ))}
+          {/* Quick actions */}
+          <Box px={{ base: '14px', md: '20px' }} pt="10px" pb="6px">
+            <Flex gap="7px" flexWrap="wrap">
+              {actionChips.map((chip) => {
+                const ChipIcon = chip.icon;
+                return (
+                  <Button
+                    key={chip.label}
+                    size="xs"
+                    h="30px"
+                    variant="outline"
+                    borderColor="app.border"
+                    borderRadius="full"
+                    fontSize="11px"
+                    fontWeight="600"
+                    leftIcon={<ChipIcon size={12} />}
+                    _hover={{ bg: 'brand.50', borderColor: 'brand.200', color: 'brand.600' }}
+                    onClick={() => send(chip.label)}
+                    isDisabled={thinking}>
+                    {chip.label}
+                  </Button>
+                );
+              })}
             </Flex>
           </Box>
 
           {/* Input */}
-          <Box px="18px" pb="16px">
+          <Box px={{ base: '14px', md: '20px' }} pb="16px">
             <InputGroup>
-              <Input value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={handleKeyDown} placeholder="Ask your copilot anything..." bg="app.surfaceAlt" borderColor="app.border" borderRadius="12px" fontSize="13px" isDisabled={thinking} />
-              <InputRightElement>
-                <Button size="sm" variant="ghost" onClick={() => send(input)} aria-label="Send" isDisabled={thinking || !input.trim()}>
-                  <Icon as={SendIcon} boxSize="16px" color="#e9683f" />
+              <Input
+                ref={inputRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask your copilot anything..."
+                bg="app.surfaceAlt"
+                borderColor="app.border"
+                borderRadius="14px"
+                fontSize="13px"
+                h="46px"
+                isDisabled={thinking}
+                _focus={{ borderColor: 'brand.400', boxShadow: '0 0 0 3px rgba(233,104,63,0.12)' }}
+                aria-label="Chat message input"
+              />
+              <InputRightElement h="46px">
+                <Button
+                  size="sm"
+                  h="34px"
+                  w="34px"
+                  borderRadius="10px"
+                  bg={input.trim() && !thinking ? 'brand.500' : 'app.surfaceAlt'}
+                  color={input.trim() && !thinking ? 'white' : 'app.faint'}
+                  _hover={input.trim() && !thinking ? { bg: 'brand.600' } : {}}
+                  onClick={() => send(input)}
+                  aria-label="Send message"
+                  isDisabled={thinking || !input.trim()}
+                  p="0">
+                  <SendIcon size={16} />
                 </Button>
               </InputRightElement>
             </InputGroup>
@@ -424,17 +476,39 @@ export function Assistant() {
         <Stack spacing="18px">
           {/* Suggested prompts */}
           <Card p="18px">
-            <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="14px" mb="10px">Suggested prompts</Text>
+            <Flex align="center" gap="8px" mb="12px">
+              <Icon as={SparklesIcon} boxSize="15px" color="brand.500" />
+              <Text fontFamily="'Plus Jakarta Sans', sans-serif" fontWeight="800" fontSize="14px">Suggested prompts</Text>
+            </Flex>
             <Stack spacing="7px">
-              {suggestions.map((s) => (
-                <Button key={s.label} variant="unstyled" display="flex" align="center" gap="8px" p="10px" borderRadius="10px" bg="app.surfaceAlt" _hover={{ bg: 'brand.50' }} onClick={() => send(s.label)} textAlign="left" isDisabled={thinking} w="full">
-                  <Icon as={SparklesIcon} boxSize="13px" color="#e9683f" />
-                  <Box flex="1">
-                    <Text fontSize="12px">{s.label}</Text>
-                    <Text fontSize="9px" color="app.faint">{s.tool}</Text>
-                  </Box>
-                </Button>
-              ))}
+              {suggestions.map((s) => {
+                const SIcon = s.icon;
+                return (
+                  <Button
+                    key={s.label}
+                    variant="unstyled"
+                    display="flex"
+                    align="center"
+                    gap="10px"
+                    p="11px"
+                    borderRadius="11px"
+                    bg="app.surfaceAlt"
+                    _hover={{ bg: 'brand.50', transform: 'translateX(2px)' }}
+                    transition="all .15s ease"
+                    onClick={() => send(s.label)}
+                    textAlign="left"
+                    isDisabled={thinking}
+                    w="full">
+                    <Flex w="28px" h="28px" borderRadius="8px" bg="app.surface" align="center" justify="center" flexShrink={0}>
+                      <SIcon size={14} color="brand.500" />
+                    </Flex>
+                    <Box flex="1">
+                      <Text fontSize="12px" fontWeight="600">{s.label}</Text>
+                      <Text fontSize="9px" color="app.faint">{s.tool}</Text>
+                    </Box>
+                  </Button>
+                );
+              })}
             </Stack>
           </Card>
 
@@ -444,32 +518,46 @@ export function Assistant() {
               title="MCP connections"
               subtitle={`${connectedCount} connected`}
               right={
-                <Tooltip label="Refresh">
-                  <IconButton aria-label="Refresh" icon={<RefreshCwIcon size={14} />} size="xs" variant="ghost" onClick={loadServers} />
+                <Tooltip label="Refresh connections">
+                  <IconButton aria-label="Refresh connections" icon={<RefreshCwIcon size={14} />} size="xs" variant="ghost" onClick={loadServers} />
                 </Tooltip>
               }
             />
             {loading ? (
               <Flex py="40px" justify="center"><Spinner color="brand.500" /></Flex>
             ) : (
-              <Stack px="18px" py="10px" spacing="0">
-                {servers.map((server, i) => {
-                  const CatIcon = categoryIcon[server.category] ?? DatabaseIcon;
-                  return (
-                    <Flex key={server.id} align="center" gap="10px" py="11px" borderBottom={i === servers.length - 1 ? '0' : '1px solid'} borderColor="app.border">
-                      <Flex w="30px" h="30px" borderRadius="9px" bg={server.connected ? 'brand.50' : 'app.surfaceAlt'} align="center" justify="center">
-                        <Icon as={CatIcon} boxSize="14px" color={server.connected ? '#e9683f' : 'app.faint'} />
-                      </Flex>
-                      <Box flex="1">
-                        <Text fontSize="12px" fontWeight="600">{server.name}</Text>
-                        <Text fontSize="10px" color="app.subtle">{server.category}</Text>
-                      </Box>
-                      <Box w="8px" h="8px" borderRadius="full" bg={server.connected ? '#2d9c79' : '#c7ccd6'} />
-                      <Switch isChecked={server.connected} onChange={() => toggleServer(server.id)} colorScheme="orange" size="sm" />
-                    </Flex>
-                  );
-                })}
-              </Stack>
+              <Box px="18px" py="10px">
+                {Object.entries(serverCategories).map(([category, catServers], catIdx) => (
+                  <Box key={category} mb={catIdx < Object.keys(serverCategories).length - 1 ? '12px' : '0'}>
+                    <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="6px" px="2px">{category.toUpperCase()}</Text>
+                    {catServers.map((server, i) => {
+                      const CatIcon = categoryIcon[server.category] ?? DatabaseIcon;
+                      return (
+                        <Flex
+                          key={server.id}
+                          align="center"
+                          gap="10px"
+                          py="10px"
+                          px="8px"
+                          borderRadius="10px"
+                          _hover={{ bg: 'app.surfaceAlt' }}
+                          transition="background .12s ease"
+                          borderBottom={i === catServers.length - 1 ? '0' : '1px solid'}
+                          borderColor="app.border">
+                          <Flex w="30px" h="30px" borderRadius="9px" bg={server.connected ? 'brand.50' : 'app.surfaceAlt'} align="center" justify="center" flexShrink={0}>
+                            <Icon as={CatIcon} boxSize="14px" color={server.connected ? 'brand.500' : 'app.faint'} />
+                          </Flex>
+                          <Box flex="1" minW="0">
+                            <Text fontSize="12px" fontWeight="600" noOfLines={1}>{server.name}</Text>
+                          </Box>
+                          <Box w="7px" h="7px" borderRadius="full" bg={server.connected ? 'green.400' : 'app.faint'} flexShrink={0} />
+                          <Switch isChecked={server.connected} onChange={() => toggleServer(server.id)} colorScheme="orange" size="sm" aria-label={`Toggle ${server.name} connection`} />
+                        </Flex>
+                      );
+                    })}
+                  </Box>
+                ))}
+              </Box>
             )}
           </Card>
 
@@ -485,20 +573,27 @@ export function Assistant() {
               }
             />
             {showLogs && (
-              <Stack px="18px" py="10px" spacing="0" maxH="200px" overflowY="auto">
+              <Box px="18px" py="10px" maxH="220px" overflowY="auto" sx={{ scrollbarWidth: 'thin' }}>
                 {toolLogs.length === 0 ? (
-                  <Text py="14px" fontSize="11px" color="app.faint">No tool executions yet.</Text>
-                ) : toolLogs.map((log, i) => (
-                  <Flex key={log.id} align="center" gap="8px" py="9px" borderBottom={i === toolLogs.length - 1 ? '0' : '1px solid'} borderColor="app.border">
-                    <Icon as={log.status === 'success' ? CheckCircleIcon : ZapIcon} boxSize="12px" color={log.status === 'success' ? '#1c8a5c' : '#c23c3c'} />
-                    <Box flex="1">
-                      <Text fontSize="11px" fontWeight="600">{log.tool_name} · {log.action}</Text>
-                      <Text fontSize="9px" color="app.faint">{new Date(log.created_at).toLocaleTimeString()} · {log.latency_ms}ms</Text>
-                    </Box>
-                    <Badge fontSize="8px" borderRadius="full" px="5px" bg={log.status === 'success' ? '#dcf3e8' : '#fbe0e0'} color={log.status === 'success' ? '#1c8a5c' : '#c23c3c'} textTransform="none">{log.status}</Badge>
+                  <Flex py="20px" direction="column" align="center" gap="6px">
+                    <Icon as={ClockIcon} boxSize="20px" color="app.faint" />
+                    <Text fontSize="11px" color="app.faint">No tool executions yet.</Text>
                   </Flex>
-                ))}
-              </Stack>
+                ) : (
+                  <Stack spacing="0">
+                    {toolLogs.map((log, i) => (
+                      <Flex key={log.id} align="center" gap="8px" py="9px" borderBottom={i === toolLogs.length - 1 ? '0' : '1px solid'} borderColor="app.border">
+                        <Icon as={log.status === 'success' ? CheckCircleIcon : ZapIcon} boxSize="12px" color={log.status === 'success' ? 'green.500' : 'red.500'} flexShrink={0} />
+                        <Box flex="1" minW="0">
+                          <Text fontSize="11px" fontWeight="600" noOfLines={1}>{log.tool_name} · {log.action}</Text>
+                          <Text fontSize="9px" color="app.faint">{new Date(log.created_at).toLocaleTimeString()} · {log.latency_ms}ms</Text>
+                        </Box>
+                        <Badge fontSize="8px" borderRadius="full" px="5px" py="1px" bg={log.status === 'success' ? 'green.50' : 'red.50'} color={log.status === 'success' ? 'green.600' : 'red.500'} textTransform="none" fontWeight="700">{log.status}</Badge>
+                      </Flex>
+                    ))}
+                  </Stack>
+                )}
+              </Box>
             )}
           </Card>
         </Stack>

@@ -19,6 +19,12 @@ import { Reports } from './pages/Reports';
 import { Assistant } from './pages/Assistant';
 import { Automation } from './pages/Automation';
 import { Settings } from './pages/Settings';
+import { LeadScoring } from './pages/LeadScoring';
+import { UserManagement } from './pages/UserManagement';
+import { RoleManagement } from './pages/RoleManagement';
+import { Documents } from './pages/Documents';
+import { AuditLogs } from './pages/AuditLogs';
+import { ActivityTimelinePage } from './pages/ActivityTimelinePage';
 import { NotFound } from './pages/NotFound';
 import { Login } from './pages/auth/Login';
 import { SignUp } from './pages/auth/SignUp';
@@ -69,6 +75,12 @@ export function App() {
                   <Route path="/assistant" element={<Assistant />} />
                   <Route path="/automation" element={<Automation />} />
                   <Route path="/settings" element={<Settings />} />
+                  <Route path="/lead-scoring" element={<LeadScoring />} />
+                  <Route path="/users" element={<UserManagement />} />
+                  <Route path="/roles" element={<RoleManagement />} />
+                  <Route path="/documents" element={<Documents />} />
+                  <Route path="/audit-logs" element={<AuditLogs />} />
+                  <Route path="/activity" element={<ActivityTimelinePage />} />
                   <Route path="*" element={<NotFound />} />
                 </Route>
               </Routes>

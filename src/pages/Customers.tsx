@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   Avatar,
   Box,
@@ -100,14 +100,14 @@ export function Customers() {
   });
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  // Load people for lookups
-  useEffect(() => {
+  // Load people for lookups — extracted as callback so it can be refreshed after create/update
+  const loadPeople = useCallback(async () => {
     if (!session?.user) return;
-    (async () => {
-      const { data } = await supabase.from('people').select('*').eq('user_id', session.user.id);
-      setPeople((data ?? []) as Person[]);
-    })();
+    const { data } = await supabase.from('people').select('*').eq('user_id', session.user.id);
+    setPeople((data ?? []) as Person[]);
   }, [session]);
+
+  useEffect(() => { loadPeople(); }, [loadPeople]);
 
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
 
@@ -184,6 +184,7 @@ export function Customers() {
       }
       toast({ title: 'Customer created', status: 'success', duration: 2000, position: 'top-right' });
     }
+    loadPeople();
     formDrawer.onClose();
   };
 

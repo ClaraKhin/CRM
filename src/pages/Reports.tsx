@@ -244,7 +244,7 @@ export function Reports() {
                       <Box><Text fontSize="13px" fontWeight="700">{t.owner_name}</Text><Text fontSize="10px" color="app.faint">{t.period_label}</Text></Box>
                       <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg={isOver ? '#e8f5ee' : 'app.surface'} color={color} textTransform="capitalize">{t.period_type}</Badge>
                     </Flex>
-                    <Flex align="baseline" gap="4px" mb="8px"><Text fontSize="18px" fontWeight="800" color="#1d273d">${(t.won_amount / 1000).toFixed(1)}k</Text><Text fontSize="11px" color="app.faint">/ ${(t.target_amount / 1000).toFixed(0)}k</Text><Text fontSize="12px" fontWeight="700" color={color} ml="auto">{pct}%</Text></Flex>
+                    <Flex align="baseline" gap="4px" mb="8px"><Text fontSize="18px" fontWeight="800" color="app.text">${(t.won_amount / 1000).toFixed(1)}k</Text><Text fontSize="11px" color="app.faint">/ ${(t.target_amount / 1000).toFixed(0)}k</Text><Text fontSize="12px" fontWeight="700" color={color} ml="auto">{pct}%</Text></Flex>
                     <Box w="full" h="8px" bg="app.border" borderRadius="full" overflow="hidden"><Box h="full" borderRadius="full" bg={color} style={{ width: `${pct}%` }} transition="width .3s ease" /></Box>
                     <Flex justify="space-between" mt="8px"><Text fontSize="10px" color="app.faint">Won: ${t.won_amount.toLocaleString()}</Text><Button size="xs" variant="ghost" color="#c23c3c" p="0" h="20px" onClick={(e) => { e.stopPropagation(); setDeleteTargetId(t.id); confirmTargetDel.onOpen(); }}><Trash2Icon size={12} /></Button></Flex>
                   </Box>
