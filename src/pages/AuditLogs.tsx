@@ -9,6 +9,12 @@ import {
   Input,
   InputGroup,
   InputLeftElement,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
   Table,
@@ -22,6 +28,7 @@ import {
   useToast } from '@chakra-ui/react';
 import {
   ActivityIcon,
+  CalendarIcon,
   DownloadIcon,
   FilterIcon,
   GlobeIcon,
@@ -66,6 +73,8 @@ export function AuditLogs() {
   const [search, setSearch] = useState('');
   const [actionFilter, setActionFilter] = useState('All');
   const [page, setPage] = useState(0);
+  const [selected, setSelected] = useState<AuditLog | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
   const pageSize = 15;
   const toast = useToast();
 
@@ -81,7 +90,15 @@ export function AuditLogs() {
 
   const filtered = useMemo(() => logs
     .filter((l) => actionFilter === 'All' || l.action_type === actionFilter || l.action === actionFilter)
-    .filter((l) => !search || l.action.toLowerCase().includes(search.toLowerCase()) || (l.entity_type ?? '').toLowerCase().includes(search.toLowerCase()))
+    .filter((l) => {
+      if (!search) return true;
+      const q = search.toLowerCase();
+      return l.action.toLowerCase().includes(q) ||
+        (l.entity_type ?? '').toLowerCase().includes(q) ||
+        (l.ip_address ?? '').toLowerCase().includes(q) ||
+        (l.browser ?? '').toLowerCase().includes(q) ||
+        (l.device_type ?? '').toLowerCase().includes(q);
+    })
   , [logs, search, actionFilter]);
 
   const paged = filtered.slice(page * pageSize, (page + 1) * pageSize);
@@ -95,7 +112,11 @@ export function AuditLogs() {
   }, [logs]);
 
   const handleExport = () => {
-    exportToCsv('audit-logs.csv', filtered.map((l) => ({ action: l.action, action_type: l.action_type, entity_type: l.entity_type, entity_id: l.entity_id, ip: l.ip_address, device: l.device_type, browser: l.browser, os: l.os, created_at: l.created_at })));
+    exportToCsv('audit-logs.csv', filtered.map((l) => ({
+      action: l.action, action_type: l.action_type, entity_type: l.entity_type,
+      entity_id: l.entity_id, ip: l.ip_address, device: l.device_type,
+      browser: l.browser, os: l.os, created_at: l.created_at,
+    })));
     toast({ title: 'Exported to CSV', status: 'success', duration: 1800, position: 'top-right' });
   };
 
@@ -104,32 +125,42 @@ export function AuditLogs() {
     return MonitorIcon;
   };
 
+  const openDetail = (log: AuditLog) => {
+    setSelected(log);
+    setDetailOpen(true);
+  };
+
+  const statCards = [
+    { label: 'Total events', value: stats.total, color: '#3355c9' },
+    { label: 'Logins', value: stats.logins, color: '#2d9c79' },
+    { label: 'Creates', value: stats.creates, color: '#1c8a5c' },
+    { label: 'Updates', value: stats.updates, color: '#e9683f' },
+    { label: 'Deletes', value: stats.deletes, color: '#c23c3c' },
+  ];
+
   return (
     <>
       <PageHeader
         title="Audit Logs"
-        subtitle="Track user activity, logins, and CRUD operations."
+        subtitle="Track user activity, logins, CRUD operations with full device and location metadata."
         actions={
-          <Button size="sm" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<DownloadIcon size={14} />} onClick={handleExport}>Export</Button>
+          <HStack spacing="6px">
+            <Button size="sm" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<DownloadIcon size={14} />} onClick={handleExport}>Export</Button>
+          </HStack>
         } />
 
-      <Box
-        display="grid"
-        gridTemplateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }}
-        gap="12px" mb="18px">
-        {[
-          { label: 'Total events', value: stats.total, color: '#3355c9' },
-          { label: 'Logins', value: stats.logins, color: '#2d9c79' },
-          { label: 'Creates', value: stats.creates, color: '#1c8a5c' },
-          { label: 'Updates', value: stats.updates, color: '#e9683f' },
-          { label: 'Deletes', value: stats.deletes, color: '#c23c3c' },
-        ].map((s) => (
-          <Card key={s.label} p="14px">
-            <Flex align="center" gap="6px">
-              <Box w="7px" h="7px" borderRadius="full" bg={s.color} />
-              <Text fontSize="10px" color="app.subtle">{s.label}</Text>
+      <Box display="grid" gridTemplateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(5, 1fr)' }} gap="12px" mb="18px">
+        {statCards.map((s) => (
+          <Card key={s.label} p="15px">
+            <Flex align="center" gap="8px">
+              <Box w="30px" h="30px" borderRadius="9px" bg={`${s.color}1a`} display="flex" alignItems="center" justifyContent="center">
+                <Box w="8px" h="8px" borderRadius="full" bg={s.color} />
+              </Box>
+              <Box>
+                <Text fontSize="10px" color="app.subtle">{s.label}</Text>
+                <Text fontSize="20px" fontWeight="800">{s.value}</Text>
+              </Box>
             </Flex>
-            <Text mt="5px" fontSize="22px" fontWeight="800">{s.value}</Text>
           </Card>
         ))}
       </Box>
@@ -137,8 +168,8 @@ export function AuditLogs() {
       <Card>
         <Flex px={{ base: '14px', md: '20px' }} py="14px" gap="10px" align="center" flexWrap="wrap" borderBottom="1px solid" borderColor="app.border">
           <InputGroup maxW="260px" size="sm">
-            <InputLeftElement pointerEvents="none"><FilterIcon size={14} color="#8a93a6" /></InputLeftElement>
-            <Input placeholder="Search actions..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} borderRadius="9px" bg="app.surfaceAlt" borderColor="app.border" fontSize="12px" />
+            <InputLeftElement pointerEvents="none"><FilterIcon size={14} color="app.faint" /></InputLeftElement>
+            <Input placeholder="Search actions, IP, browser..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(0); }} borderRadius="9px" bg="app.surfaceAlt" borderColor="app.border" fontSize="12px" />
           </InputGroup>
           <Select size="sm" maxW="160px" value={actionFilter} onChange={(e) => { setActionFilter(e.target.value); setPage(0); }} borderRadius="9px" borderColor="app.border" fontSize="12px">
             {ACTION_TYPES.map((t) => <option key={t} value={t}>{t === 'All' ? 'All actions' : t}</option>)}
@@ -169,10 +200,12 @@ export function AuditLogs() {
                   const color = actionColor[type] ?? '#6b7488';
                   const DeviceIcon = getDeviceIcon(log.device_type);
                   return (
-                    <Tr key={log.id} _hover={{ bg: 'app.surfaceAlt' }}>
+                    <Tr key={log.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => openDetail(log)}>
                       <Td borderColor="app.border">
                         <Flex align="center" gap="8px">
-                          <Box w="6px" h="6px" borderRadius="full" bg={color} flexShrink={0} />
+                          <Box w="28px" h="28px" borderRadius="8px" bg={`${color}1a`} display="flex" alignItems="center" justifyContent="center" flexShrink={0}>
+                            <Box w="6px" h="6px" borderRadius="full" bg={color} />
+                          </Box>
                           <Box>
                             <Text fontSize="12px" fontWeight="600">{log.action}</Text>
                             {(log.action_type || log.action) && (
@@ -207,6 +240,81 @@ export function AuditLogs() {
           <Pagination page={page} pageSize={pageSize} total={filtered.length} onPageChange={setPage} />
         )}
       </Card>
+
+      {/* Detail Modal */}
+      <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="16px" overflow="hidden">
+          {selected && (() => {
+            const type = selected.action_type ?? selected.action;
+            const color = actionColor[type] ?? '#6b7488';
+            const DeviceIcon = getDeviceIcon(selected.device_type);
+            return (
+              <>
+                <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+                  <Flex align="center" gap="10px">
+                    <Flex w="36px" h="36px" borderRadius="10px" bg={`${color}1a`} align="center" justify="center">
+                      <Box w="10px" h="10px" borderRadius="full" bg={color} />
+                    </Flex>
+                    <Box>
+                      <Text fontSize="15px" fontWeight="800">{selected.action}</Text>
+                      <Badge fontSize="9px" borderRadius="full" px="6px" py="1px" bg={`${color}1a`} color={color} textTransform="none">{type}</Badge>
+                    </Box>
+                  </Flex>
+                </ModalHeader>
+                <ModalCloseButton />
+                <ModalBody py="16px">
+                  <Box p="14px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+                    <Text fontSize="10px" color="app.faint" mb="8px" letterSpacing="0.06em">ENTITY</Text>
+                    <Flex align="center" gap="8px">
+                      <Text fontSize="12px" fontWeight="600">{selected.entity_type ?? '—'}</Text>
+                      {selected.entity_id && <Text fontSize="11px" color="app.faint">ID: {selected.entity_id.slice(0, 12)}</Text>}
+                    </Flex>
+                  </Box>
+
+                  <Grid templateColumns="1fr 1fr" gap="10px" mb="12px">
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Flex align="center" gap="6px" mb="4px"><Icon as={GlobeIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">IP ADDRESS</Text></Flex>
+                      <Text fontSize="12px" fontWeight="600">{selected.ip_address ?? '—'}</Text>
+                    </Box>
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Flex align="center" gap="6px" mb="4px"><Icon as={DeviceIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">DEVICE</Text></Flex>
+                      <Text fontSize="12px" fontWeight="600">{selected.device_type ?? '—'}</Text>
+                      {selected.os && <Text fontSize="10px" color="app.faint">{selected.os}</Text>}
+                    </Box>
+                  </Grid>
+
+                  <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+                    <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">BROWSER</Text>
+                    <Text fontSize="12px" fontWeight="600">{selected.browser ?? '—'}</Text>
+                  </Box>
+
+                  {selected.user_agent && (
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">USER AGENT</Text>
+                      <Text fontSize="10px" color="app.subtle" fontFamily="monospace" wordBreak="break-all" lineHeight="1.4">{selected.user_agent}</Text>
+                    </Box>
+                  )}
+
+                  {selected.metadata && Object.keys(selected.metadata).length > 0 && (
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="8px">METADATA ({Object.keys(selected.metadata).length} fields)</Text>
+                      <Box as="pre" fontSize="10px" color="app.subtle" fontFamily="monospace" whiteSpace="pre-wrap" wordBreak="break-all" lineHeight="1.4" m="0">
+                        {JSON.stringify(selected.metadata, null, 2)}
+                      </Box>
+                    </Box>
+                  )}
+
+                  <Flex justify="space-between" align="center" p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                    <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint" letterSpacing="0.06em">TIMESTAMP</Text></Flex>
+                    <Text fontSize="11px" fontWeight="600">{new Date(selected.created_at).toLocaleString()}</Text>
+                  </Flex>
+                </ModalBody>
+              </>
+            );
+          })()}
+        </ModalContent>
+      </Modal>
     </>
   );
 }

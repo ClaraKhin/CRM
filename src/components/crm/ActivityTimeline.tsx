@@ -67,7 +67,7 @@ export function ActivityTimeline({ entityType, entityId }: { entityType: 'custom
   const loadActivities = async () => {
     if (!session?.user || !entityId) return;
     setLoading(true);
-    const { data } = await supabase.from('activities').select('*').eq('user_id', session.user.id).eq(filterCol, entityId).order('created_at', { ascending: false }).limit(20);
+    const { data } = await supabase.from('activities').select('*').eq('user_id', session.user.id).eq(filterCol, entityId).order('created_at', { ascending: false }).limit(30);
     setActivities((data ?? []) as Activity[]);
     setLoading(false);
   };
