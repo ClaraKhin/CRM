@@ -131,7 +131,7 @@ export function RoleManagement() {
     if (!selectedRole || !session?.user) return;
     const newPerms = { ...selectedRole.permissions, [key]: !selectedRole.permissions[key] };
     setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: newPerms } : r));
-    const { error } = await supabase.from('roles').update({ permissions: newPerms, updated_at: new Date().toISOString() }).eq('id', selectedRole.id);
+    const { error } = await supabase.from('roles').update({ permissions: newPerms }).eq('id', selectedRole.id);
     if (error) {
       toast({ title: 'Failed to update permission', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
       setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: selectedRole.permissions } : r));
@@ -167,7 +167,7 @@ export function RoleManagement() {
     if (!form.name.trim()) { toast({ title: 'Role name is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
     setSaving(true);
     if (editingId) {
-      const { error } = await supabase.from('roles').update({ name: form.name, description: form.description, permissions: permDraft, updated_at: new Date().toISOString() }).eq('id', editingId);
+      const { error } = await supabase.from('roles').update({ name: form.name, description: form.description, permissions: permDraft }).eq('id', editingId);
       if (error) { toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' }); setSaving(false); return; }
       toast({ title: 'Role updated', status: 'success', duration: 2000, position: 'top-right' });
     } else {

@@ -1,16 +1,25 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Avatar,
   Badge,
   Box,
   Button,
   Flex,
+  FormControl,
+  FormLabel,
   Grid,
   HStack,
   Icon,
   Input,
   InputGroup,
   InputLeftElement,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Select,
   Spinner,
   Stack,
@@ -19,12 +28,14 @@ import {
   Tbody,
   Td,
   Text,
+  Textarea,
   Th,
   Thead,
   Tr,
   useDisclosure,
   useToast } from '@chakra-ui/react';
 import {
+  EditIcon,
   FileIcon,
   FileTextIcon,
   FilterIcon,
@@ -39,6 +50,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import { writeAuditLog } from '../lib/audit';
 
 type Doc = {
   id: string;
@@ -74,6 +86,13 @@ export function Documents() {
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const confirmDel = useDisclosure();
   const [uploading, setUploading] = useState(false);
+  const uploadModal = useDisclosure();
+  const editModal = useDisclosure();
+  const [editId, setEditId] = useState<string | null>(null);
+  const [uploadForm, setUploadForm] = useState({ name: '', entity_type: 'general', description: '' });
+  const [editForm, setEditForm] = useState({ name: '', entity_type: 'general' });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -113,31 +132,60 @@ export function Documents() {
 
   const formatSize = (bytes: number) => bytes < 1024 ? `${bytes}B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)}KB` : `${(bytes / 1048576).toFixed(1)}MB`;
 
-  const handleUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !session?.user) return;
-    if (file.size > 25 * 1024 * 1024) { toast({ title: 'File too large (max 25MB)', status: 'error', duration: 3000, position: 'top-right' }); return; }
+  const openUploadModal = () => {
+    setUploadForm({ name: '', entity_type: 'general', description: '' });
+    setSelectedFile(null);
+    uploadModal.onOpen();
+  };
+
+  const handleUpload = async () => {
+    if (!session?.user) return;
+    if (!selectedFile) { toast({ title: 'Select a file to upload', status: 'warning', duration: 2500, position: 'top-right' }); return; }
+    if (selectedFile.size > 25 * 1024 * 1024) { toast({ title: 'File too large (max 25MB)', status: 'error', duration: 3000, position: 'top-right' }); return; }
     setUploading(true);
-    const filePath = `${session.user.id}/general/${Date.now()}-${file.name}`;
-    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, file);
-    const fileUrl = upErr ? `local:${file.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+    const filePath = `${session.user.id}/${uploadForm.entity_type}/${Date.now()}-${selectedFile.name}`;
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, selectedFile);
+    const fileUrl = upErr ? `local:${selectedFile.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
     const { data: docData, error: insErr } = await supabase.from('documents').insert({
-      user_id: session.user.id, entity_type: 'general', entity_id: null, name: file.name,
-      file_url: fileUrl, file_type: file.type || 'file', file_size: file.size,
+      user_id: session.user.id, entity_type: uploadForm.entity_type, entity_id: null,
+      name: uploadForm.name || selectedFile.name,
+      file_url: fileUrl, file_type: selectedFile.type || 'file', file_size: selectedFile.size,
       uploaded_by_name: profile?.full_name ?? '', uploaded_by_email: profile?.email ?? '',
     }).select().maybeSingle();
     if (insErr) {
       toast({ title: 'Upload failed', description: insErr.message, status: 'error', duration: 3000, position: 'top-right' });
     } else if (docData) {
       setDocs((prev) => [docData as Doc, ...prev]);
+      await writeAuditLog({ userId: session.user.id, action: 'document_upload', actionType: 'create', entityType: 'document', entityId: docData.id, metadata: { name: docData.name } });
       toast({ title: 'Document uploaded', status: 'success', duration: 2000, position: 'top-right' });
+      uploadModal.onClose();
     }
     setUploading(false);
-    e.target.value = '';
+  };
+
+  const openEditModal = (doc: Doc) => {
+    setEditId(doc.id);
+    setEditForm({ name: doc.name, entity_type: doc.entity_type });
+    editModal.onOpen();
+  };
+
+  const handleEdit = async () => {
+    if (!editId || !session?.user) return;
+    const { data, error } = await supabase.from('documents').update({ name: editForm.name, entity_type: editForm.entity_type }).eq('id', editId).select().maybeSingle();
+    if (error) {
+      toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      return;
+    }
+    if (data) {
+      setDocs((prev) => prev.map((d) => d.id === editId ? { ...d, ...data } as Doc : d));
+      await writeAuditLog({ userId: session.user.id, action: 'document_update', actionType: 'update', entityType: 'document', entityId: editId, metadata: { name: editForm.name } });
+      toast({ title: 'Document updated', status: 'success', duration: 2000, position: 'top-right' });
+      editModal.onClose();
+    }
   };
 
   const handleDelete = async () => {
-    if (!deleteId) return;
+    if (!deleteId || !session?.user) return;
     const doc = docs.find((d) => d.id === deleteId);
     const { error } = await supabase.from('documents').delete().eq('id', deleteId);
     if (error) {
@@ -146,6 +194,7 @@ export function Documents() {
       return;
     }
     setDocs((prev) => prev.filter((d) => d.id !== deleteId));
+    await writeAuditLog({ userId: session.user.id, action: 'document_delete', actionType: 'delete', entityType: 'document', entityId: deleteId, metadata: { name: doc?.name } });
     toast({ title: 'Document deleted', status: 'success', duration: 1800, position: 'top-right' });
     confirmDel.onClose();
     setDeleteId(null);
@@ -162,11 +211,9 @@ export function Documents() {
         subtitle="All uploaded files from every module, in one place."
         actions={
           <HStack spacing="6px">
-            <Flex as="label" align="center" gap="7px" px="14px" h="32px" borderRadius="9px" bg="navy.600" color="white" cursor="pointer" _hover={{ bg: 'navy.500' }} fontSize="12px" fontWeight="600">
-              <UploadIcon size={14} />
-              {uploading ? 'Uploading...' : 'Upload'}
-              <input type="file" hidden onChange={handleUpload} disabled={uploading} />
-            </Flex>
+            <Button size="sm" h="32px" borderRadius="9px" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} fontSize="12px" fontWeight="600" leftIcon={<UploadIcon size={14} />} onClick={openUploadModal} isLoading={uploading}>
+              Upload
+            </Button>
           </HStack>
         } />
 
@@ -279,7 +326,7 @@ export function Documents() {
                       <Td borderColor="app.border">
                         <HStack spacing="2px">
                           {!doc.file_url.startsWith('local:') && <Button as="a" href={doc.file_url} target="_blank" size="xs" variant="ghost" fontSize="11px" color="brand.600">View</Button>}
-                          {canDelete(doc) && <Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(doc.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button>}
+                          {canDelete(doc) && <><Button size="xs" variant="ghost" color="app.subtle" onClick={() => openEditModal(doc)}><EditIcon size={13} /></Button><Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(doc.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button></>}
                         </HStack>
                       </Td>
                     </Tr>
@@ -325,6 +372,92 @@ export function Documents() {
           </Box>
         )}
       </Card>
+
+      {/* Upload Modal */}
+      <Modal isOpen={uploadModal.isOpen} onClose={uploadModal.onClose} size="lg" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="16px">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            <Flex align="center" gap="10px">
+              <Flex w="34px" h="34px" borderRadius="10px" bg="navy.6001a" align="center" justify="center"><UploadIcon size={16} color="#34538a" /></Flex>
+              <Box><Text fontSize="15px" fontWeight="800">Upload Document</Text><Text fontSize="11px" color="app.subtle">Add a file with metadata</Text></Box>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            <Stack spacing="14px">
+              <FormControl>
+                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Document name</FormLabel>
+                <Input placeholder="e.g. Q3 Proposal Draft" value={uploadForm.name} onChange={(e) => setUploadForm({ ...uploadForm, name: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px" />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Category</FormLabel>
+                <Select value={uploadForm.entity_type} onChange={(e) => setUploadForm({ ...uploadForm, entity_type: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px">
+                  {['general', 'lead', 'deal', 'customer', 'task', 'invoice', 'quote'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                </Select>
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="11px" color="app.subtle" mb="6px">File</FormLabel>
+                <Box
+                  onClick={() => fileInputRef.current?.click()}
+                  border="2px dashed" borderColor="app.border" borderRadius="12px" py="24px" cursor="pointer"
+                  _hover={{ borderColor: 'navy.500', bg: 'app.surfaceAlt' }} transition="all .15s ease" textAlign="center">
+                  {selectedFile ? (
+                    <Flex align="center" justify="center" gap="8px">
+                      <FileIcon size={18} color="#34538a" />
+                      <Text fontSize="13px" fontWeight="600">{selectedFile.name}</Text>
+                      <Text fontSize="11px" color="app.faint">({(selectedFile.size / 1024).toFixed(1)} KB)</Text>
+                    </Flex>
+                  ) : (
+                    <Stack align="center" spacing="4px">
+                      <UploadIcon size={22} color="app.faint" />
+                      <Text fontSize="12px" color="app.subtle">Click to select a file</Text>
+                      <Text fontSize="10px" color="app.faint">Max 25MB</Text>
+                    </Stack>
+                  )}
+                  <input ref={fileInputRef} type="file" hidden onChange={(e) => setSelectedFile(e.target.files?.[0] ?? null)} />
+                </Box>
+              </FormControl>
+            </Stack>
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
+            <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={uploadModal.onClose}>Cancel</Button>
+            <Button bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" fontWeight="600" onClick={handleUpload} isLoading={uploading} leftIcon={<UploadIcon size={14} />}>Upload</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
+
+      {/* Edit Modal */}
+      <Modal isOpen={editModal.isOpen} onClose={editModal.onClose} size="md" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="16px">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            <Flex align="center" gap="10px">
+              <Flex w="34px" h="34px" borderRadius="10px" bg="#e9683f1a" align="center" justify="center"><EditIcon size={16} color="#e9683f" /></Flex>
+              <Text fontSize="15px" fontWeight="800">Edit Document</Text>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            <Stack spacing="14px">
+              <FormControl>
+                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Document name</FormLabel>
+                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px" />
+              </FormControl>
+              <FormControl>
+                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Category</FormLabel>
+                <Select value={editForm.entity_type} onChange={(e) => setEditForm({ ...editForm, entity_type: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px">
+                  {['general', 'lead', 'deal', 'customer', 'task', 'invoice', 'quote'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
+                </Select>
+              </FormControl>
+            </Stack>
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
+            <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={editModal.onClose}>Cancel</Button>
+            <Button bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" fontWeight="600" onClick={handleEdit} leftIcon={<EditIcon size={14} />}>Save changes</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete document" message="Are you sure you want to delete this document?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>

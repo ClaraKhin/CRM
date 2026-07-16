@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, type Profile, type UserRole } from '../lib/supabase';
+import { writeAuditLog } from '../lib/audit';
 
 type AuthError = { message: string };
 
@@ -60,14 +61,10 @@ function pickAvatarColor(seed: string): string {
 async function writeAudit(
   userId: string | undefined,
   action: string,
+  actionType: 'login' | 'logout' | 'signup' | 'password_reset' = 'login',
   metadata: Record<string, unknown> = {}
 ): Promise<void> {
-  if (!userId) return;
-  await supabase.from('audit_logs').insert({
-    user_id: userId,
-    action,
-    metadata
-  });
+  await writeAuditLog({ userId, action, actionType, metadata });
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -162,7 +159,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
 
-      await writeAudit(data.user?.id, 'login', { email });
+      await writeAudit(data.user?.id, 'login', 'login', { email });
       return { error: null };
     },
     []
@@ -185,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (error) return { error: { message: friendlyAuthError(error.message) }, needsVerify: false };
 
       const needsVerify = !data.session && !!data.user;
-      await writeAudit(data.user?.id, 'signup', { email: input.email });
+      await writeAudit(data.user?.id, 'signup', 'signup', { email: input.email });
       return { error: null, needsVerify };
     },
     []
@@ -196,7 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
-    await writeAudit(userId, 'logout');
+    await writeAudit(userId, 'logout', 'logout');
   }, [session]);
 
   const sendPasswordReset = useCallback(
@@ -214,7 +211,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (newPassword: string): Promise<{ error: AuthError | null }> => {
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) return { error: { message: friendlyAuthError(error.message) } };
-      await writeAudit(session?.user?.id, 'password_reset');
+      await writeAudit(session?.user?.id, 'password_reset', 'password_reset');
       return { error: null };
     },
     [session]
