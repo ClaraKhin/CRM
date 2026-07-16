@@ -32,6 +32,7 @@ import { EmptyState } from '../components/ui/EmptyState';
 import { FormModal } from '../components/ui/FormModal';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase, ROLE_LABELS, type UserRole } from '../lib/supabase';
+import { dispatchProfilesUpdated } from '../lib/useProfileOwners';
 import { useAuth } from '../context/AuthContext';
 
 const ROLE_OPTIONS = Object.entries(ROLE_LABELS).map(([value, label]) => ({ value, label }));
@@ -171,6 +172,7 @@ export function UserManagement() {
     setSaving(false);
     userModal.onClose();
     load();
+    dispatchProfilesUpdated();
   };
 
   const handleDelete = async () => {
@@ -200,6 +202,7 @@ export function UserManagement() {
     confirmDel.onClose();
     setDeleteId(null);
     load();
+    dispatchProfilesUpdated();
   };
 
   const roleStats = ROLE_OPTIONS.map((r) => ({ ...r, count: users.filter((u) => u.role === r.value).length }));

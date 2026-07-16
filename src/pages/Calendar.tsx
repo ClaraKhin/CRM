@@ -226,7 +226,7 @@ export function Calendar() {
                       <>
                         <Text fontSize="11px" fontWeight={isToday(day) ? '800' : '600'} color={isToday(day) ? '#e9683f' : 'app.subtle'} mb="4px">{day}</Text>
                         {dayEvents.map((event) => (
-                          <Popover key={event.id} trigger="hover" placement="top" gutter={8}>
+                          <Popover key={event.id} trigger="click" placement="top" gutter={8}>
                             <PopoverTrigger>
                               <Box
                                 draggable
@@ -246,7 +246,7 @@ export function Calendar() {
                                 <Text fontSize="9px" fontWeight="700" noOfLines={1} color={typeColor[event.type]}>{event.time} {event.title}</Text>
                               </Box>
                             </PopoverTrigger>
-                            <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                            <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999} onClick={(e) => e.stopPropagation()}>
                               <PopoverArrow bg="app.surface" />
                               <PopoverBody p="14px">
                                 <EventPopup event={event} />
@@ -279,7 +279,7 @@ export function Calendar() {
                     {dayEvents.length === 0 ? (
                       <Text fontSize="11px" color="app.faint">No events</Text>
                     ) : dayEvents.map((event) => (
-                      <Popover key={event.id} trigger="hover" placement="right" gutter={8}>
+                      <Popover key={event.id} trigger="click" placement="right" gutter={8}>
                         <PopoverTrigger>
                           <Flex
                             align="center"
@@ -292,7 +292,7 @@ export function Calendar() {
                             <Box px="8px" py="4px" borderRadius="6px" bg={`${typeColor[event.type]}1a`} flex="1"><Text fontSize="12px" fontWeight="600">{event.title}</Text></Box>
                           </Flex>
                         </PopoverTrigger>
-                        <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                        <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999} onClick={(e) => e.stopPropagation()}>
                           <PopoverArrow bg="app.surface" />
                           <PopoverBody p="14px">
                             <EventPopup event={event} />
@@ -310,7 +310,7 @@ export function Calendar() {
             {events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).length === 0 ? (
               <Text py="40px" textAlign="center" fontSize="13px" color="app.faint">No events today. Click "New event" to add one.</Text>
             ) : events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).map((event) => (
-              <Popover key={event.id} trigger="hover" placement="right" gutter={8}>
+              <Popover key={event.id} trigger="click" placement="right" gutter={8}>
                 <PopoverTrigger>
                   <Flex align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" cursor="pointer">
                     <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="50px">{event.time}</Text>
@@ -320,7 +320,7 @@ export function Calendar() {
                     </Box>
                   </Flex>
                 </PopoverTrigger>
-                <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999}>
+                <PopoverContent bg="app.surface" borderColor="app.border" borderRadius="14px" boxShadow="0 8px 30px rgba(0,0,0,0.12)" maxW="280px" zIndex={9999} onClick={(e) => e.stopPropagation()}>
                   <PopoverArrow bg="app.surface" />
                   <PopoverBody p="14px">
                     <EventPopup event={event} />

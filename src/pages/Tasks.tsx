@@ -71,6 +71,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormModal } from '../components/ui/FormModal';
 import { Card } from '../components/ui/Card';
 import { supabase } from '../lib/supabase';
+import { useProfileOwners, ownerById as getOwnerById, type ProfileOwner } from '../lib/useProfileOwners';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
 
@@ -313,6 +314,12 @@ export function Tasks() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener('profiles-updated', handler);
+    return () => window.removeEventListener('profiles-updated', handler);
+  }, [load]);
+
   const subtasksFor = (parentId: string) => subtasks.filter((s) => s.parent_id === parentId);
   const commentsFor = (taskId: string) => comments.filter((c) => c.task_id === taskId && !c.parent_comment_id);
   const personName = (personId: string | null) => people.find((p) => p.id === personId)?.name ?? 'Unknown';
@@ -376,6 +383,7 @@ export function Tasks() {
     if (!task) return;
     const newDone = !task.done;
     updateTaskState(id, { done: newDone, status: newDone ? 'Done' : 'To Do' });
+    setDetailTask((prev) => prev ? { ...prev, done: newDone, status: newDone ? 'Done' : 'To Do' } : prev);
     await supabase.from('tasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', id).eq('user_id', session!.user.id);
   };
 
@@ -648,34 +656,78 @@ export function Tasks() {
     const isOverdue = !task.done && task.due_date && new Date(task.due_date) < new Date(new Date().toDateString());
     const taskSubs = subtasksFor(task.id);
     const PIcon = priorityIcon[task.priority] ?? ClockIcon;
+    const subProgress = taskSubs.length > 0 ? Math.round((taskSubs.filter((s) => s.done).length / taskSubs.length) * 100) : 0;
     return (
       <Box
         draggable
         onDragStart={() => onDragStart(task.id)}
         onClick={() => openDetail(task)}
         bg="app.surface"
-        borderRadius="12px"
+        borderRadius="11px"
         border="1px solid"
         borderColor="app.border"
-        borderLeftWidth="3px"
-        borderLeftColor={priorityColor[task.priority]}
-        p="14px"
+        borderTopWidth="3px"
+        borderTopColor={priorityColor[task.priority]}
+        p="13px"
         cursor="grab"
-        _active={{ cursor: 'grabbing' }}
-        _hover={{ boxShadow: '0 4px 16px rgba(0,0,0,0.06)', transform: 'translateY(-2px)', borderColor: 'app.subtle' }}
-        transition="all .18s ease">
-        <Flex justify="space-between" align="start" gap="6px">
-          <Text fontSize="12px" fontWeight="600" color="app.text" flex="1" noOfLines={2}>{task.title}</Text>
-          <Icon as={PIcon} boxSize="14px" color={priorityColor[task.priority]} flexShrink={0} />
+        _active={{ cursor: 'grabbing', transform: 'scale(0.98)' }}
+        _hover={{ boxShadow: '0 6px 20px rgba(0,0,0,0.08)', transform: 'translateY(-3px)', borderColor: 'app.subtle' }}
+        transition="all .2s cubic-bezier(0.4,0,0.2,1)"
+        role="group">
+        {/* Title row */}
+        <Flex justify="space-between" align="start" gap="6px" mb="6px">
+          <Text fontSize="12.5px" fontWeight="700" color="app.text" flex="1" noOfLines={2} lineHeight="1.35">{task.title}</Text>
+          <Icon as={PIcon} boxSize="14px" color={priorityColor[task.priority]} flexShrink={0} mt="1px" />
         </Flex>
-        {task.description && <Text fontSize="10px" color="app.faint" mt="4px" noOfLines={1}>{task.description}</Text>}
-        <Flex mt="10px" align="center" gap="8px" flexWrap="wrap">
-          {task.due_date && <Flex align="center" gap="3px" bg={isOverdue ? '#fde8e8' : 'app.surfaceAlt'} px="6px" py="3px" borderRadius="full"><CalendarIcon size={10} color={isOverdue ? '#c23c3c' : 'app.faint'} /><Text fontSize="9px" fontWeight={isOverdue ? '700' : '500'} color={isOverdue ? '#c23c3c' : 'app.subtle'}>{formatRelative(task.due_date)}</Text></Flex>}
-          {taskSubs.length > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ListChecksIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.subtle">{taskSubs.filter((s) => s.done).length}/{taskSubs.length}</Text></Flex>}
-          {task.estimated_hours > 0 && <Flex align="center" gap="3px" bg="app.surfaceAlt" px="6px" py="3px" borderRadius="full"><ClockIcon size={10} color="app.faint" /><Text fontSize="9px" color="app.subtle">{task.estimated_hours}h</Text></Flex>}
+
+        {/* Description */}
+        {task.description && (
+          <Text fontSize="10.5px" color="app.faint" mb="8px" noOfLines={1} lineHeight="1.4">{task.description}</Text>
+        )}
+
+        {/* Subtask progress bar */}
+        {taskSubs.length > 0 && (
+          <Box mb="8px">
+            <Flex align="center" justify="space-between" mb="3px">
+              <Flex align="center" gap="4px">
+                <ListChecksIcon size={10} color="app.faint" />
+                <Text fontSize="9px" color="app.subtle" fontWeight="500">{taskSubs.filter((s) => s.done).length}/{taskSubs.length} subtasks</Text>
+              </Flex>
+              <Text fontSize="9px" color="app.faint" fontWeight="600">{subProgress}%</Text>
+            </Flex>
+            <Box w="full" h="3px" bg="app.border" borderRadius="full" overflow="hidden">
+              <Box h="full" borderRadius="full" bg={subProgress === 100 ? '#1c8a5c' : 'brand.500'} style={{ width: `${subProgress}%` }} transition="width .3s ease" />
+            </Box>
+          </Box>
+        )}
+
+        {/* Tags row */}
+        <Flex mb="10px" align="center" gap="5px" flexWrap="wrap">
+          {task.due_date && (
+            <Flex align="center" gap="3px" bg={isOverdue ? '#fde8e8' : 'app.surfaceAlt'} px="7px" py="3px" borderRadius="7px">
+              <CalendarIcon size={10} color={isOverdue ? '#c23c3c' : 'app.faint'} />
+              <Text fontSize="9px" fontWeight={isOverdue ? '700' : '500'} color={isOverdue ? '#c23c3c' : 'app.subtle'}>{formatRelative(task.due_date)}</Text>
+            </Flex>
+          )}
+          {task.estimated_hours > 0 && (
+            <Flex align="center" gap="3px" bg="app.surfaceAlt" px="7px" py="3px" borderRadius="7px">
+              <ClockIcon size={10} color="app.faint" />
+              <Text fontSize="9px" color="app.subtle">{task.estimated_hours}h</Text>
+            </Flex>
+          )}
+          {task.task_type && (
+            <Box px="6px" py="3px" borderRadius="7px" bg="app.surfaceAlt">
+              <Text fontSize="9px" color="app.subtle" fontWeight="500">{task.task_type}</Text>
+            </Box>
+          )}
         </Flex>
-        <Flex mt="10px" justify="space-between" align="center">
-          <Avatar size="2xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="8px" fontWeight="800" w="26px" h="26px" />
+
+        {/* Footer: owner + priority */}
+        <Flex mt="auto" justify="space-between" align="center" pt="8px" borderTop="1px solid" borderColor="app.border">
+          <Flex align="center" gap="6px">
+            <Avatar size="2xs" name={owner.name} bg={owner.color} color={owner.textColor} fontSize="8px" fontWeight="800" w="22px" h="22px" />
+            <Text fontSize="10px" color="app.subtle" fontWeight="500" noOfLines={1}>{owner.name}</Text>
+          </Flex>
           <PriorityPill priority={task.priority} />
         </Flex>
       </Box>
@@ -789,24 +841,33 @@ export function Tasks() {
           </Box>
         ) : (
           <Box p="16px" overflowX="auto">
-            <Flex gap="12px" minW="max-content">
-              {kanbanColumns.map((col) => (
-                <Box key={col.status} w="260px" flexShrink={0}
-                  onDragOver={(e) => { e.preventDefault(); if (dragTaskId) setDragOverStatus(col.status); }}
-                  onDrop={() => onDropStatus(col.status)}
-                  bg={dragOverStatus === col.status ? 'rgba(26,32,53,0.04)' : 'app.surfaceAlt'}
-                  borderRadius="14px" p="10px" border="2px dashed" borderColor={dragOverStatus === col.status ? 'navy.600' : 'transparent'} transition="all .18s ease">
-                  <Flex align="center" gap="7px" mb="12px" px="4px">
-                    <Box w="7px" h="7px" borderRadius="full" bg={STATUS_DOT[col.status] ?? 'app.faint'} />
-                    <Text fontSize="12px" fontWeight="700" textTransform="uppercase" letterSpacing="0.05em" color="app.subtle">{col.status}</Text>
-                    <Flex ml="auto" align="center" justify="center" minW="22px" h="22px" px="6px" bg="app.surface" borderRadius="full" border="1px solid" borderColor="app.border"><Text fontSize="10px" fontWeight="700" color="app.faint">{col.items.length}</Text></Flex>
-                  </Flex>
-                  <Stack spacing="8px">
-                    {col.items.map((task) => <KanbanCard key={task.id} task={task} />)}
-                    {col.items.length === 0 && <Text fontSize="11px" color="app.faint" textAlign="center" py="20px">Drop tasks here</Text>}
-                  </Stack>
-                </Box>
-              ))}
+            <Flex gap="14px" minW="max-content" pb="4px">
+              {kanbanColumns.map((col) => {
+                const colColor = STATUS_DOT[col.status] ?? '#6b7488';
+                return (
+                  <Box key={col.status} w="270px" flexShrink={0}
+                    onDragOver={(e) => { e.preventDefault(); if (dragTaskId) setDragOverStatus(col.status); }}
+                    onDrop={() => onDropStatus(col.status)}
+                    bg={dragOverStatus === col.status ? 'rgba(26,32,53,0.04)' : 'app.surfaceAlt'}
+                    borderRadius="14px" p="12px" border="2px dashed" borderColor={dragOverStatus === col.status ? 'navy.600' : 'transparent'} transition="all .2s ease">
+                    {/* Column header */}
+                    <Flex align="center" gap="8px" mb="12px" px="4px">
+                      <Box w="8px" h="8px" borderRadius="full" bg={colColor} />
+                      <Text fontSize="11.5px" fontWeight="700" textTransform="uppercase" letterSpacing="0.05em" color="app.subtle">{col.status}</Text>
+                      <Flex ml="auto" align="center" justify="center" minW="22px" h="22px" px="7px" bg="app.surface" borderRadius="full" border="1px solid" borderColor="app.border"><Text fontSize="10px" fontWeight="700" color="app.faint">{col.items.length}</Text></Flex>
+                    </Flex>
+                    {/* Cards */}
+                    <Stack spacing="10px">
+                      {col.items.map((task) => <KanbanCard key={task.id} task={task} />)}
+                      {col.items.length === 0 && (
+                        <Flex align="center" justify="center" py="24px" borderRadius="10px" border="1px dashed" borderColor="app.border">
+                          <Text fontSize="11px" color="app.faint">Drop tasks here</Text>
+                        </Flex>
+                      )}
+                    </Stack>
+                  </Box>
+                );
+              })}
             </Flex>
           </Box>
         )}
@@ -885,7 +946,7 @@ export function Tasks() {
                         </Box>
 
                         <Flex gap="8px" pt="4px">
-                          {!detailTask.done && <Button flex="1" h="38px" borderRadius="10px" bg="#1c8a5c" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#167a4e' }} leftIcon={<CheckCircleIcon size={14} />} onClick={() => { toggleDone(detailTask.id); }}>Mark done</Button>}
+                          {!detailTask.done && <Button flex="1" h="38px" borderRadius="10px" bg="#1c8a5c" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#167a4e' }} leftIcon={<CheckCircleIcon size={14} />} onClick={() => toggleDone(detailTask.id)}>Mark done</Button>}
                           <Button flex="1" h="38px" borderRadius="10px" bg="navy.600" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: 'navy.500' }} onClick={() => { detailModal.onClose(); openEdit(detailTask); }}>Edit</Button>
                           <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="#fde8e8" color="#c23c3c" fontSize="13px" fontWeight="600" _hover={{ bg: '#fde8e8' }} leftIcon={<Trash2Icon size={14} />} onClick={() => { setDeleteId(detailTask.id); confirmDel.onOpen(); }}>Delete</Button>
                         </Flex>

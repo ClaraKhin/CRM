@@ -1,55 +1,60 @@
-let ipPromise: Promise<string | null> | null = null;
+import { supabase } from './supabase';
 
-export function getClientIp(): Promise<string | null> {
-  if (ipPromise) return ipPromise;
-  ipPromise = (async () => {
-    try {
-      const res = await fetch('https://api.ipify.org?format=json');
-      const data = await res.json();
-      return data.ip as string | null;
-    } catch {
-      return null;
-    }
-  })();
-  return ipPromise;
+type AuditActionType = 'login' | 'logout' | 'signup' | 'password_reset' | 'create' | 'update' | 'delete' | 'read' | 'export';
+
+type WriteAuditParams = {
+  userId: string | undefined;
+  action: string;
+  actionType?: AuditActionType;
+  entityType?: string;
+  entityId?: string;
+  metadata?: Record<string, unknown>;
+};
+
+function parseUserAgent(ua: string) {
+  let browser = 'Unknown';
+  let os = 'Unknown';
+  let deviceType = 'desktop';
+
+  if (/edg/i.test(ua)) browser = 'Edge';
+  else if (/chrome|chromium|crios/i.test(ua)) browser = 'Chrome';
+  else if (/firefox|fxios/i.test(ua)) browser = 'Firefox';
+  else if (/safari/i.test(ua)) browser = 'Safari';
+
+  if (/windows/i.test(ua)) os = 'Windows';
+  else if (/mac os|macos/i.test(ua)) os = 'macOS';
+  else if (/android/i.test(ua)) os = 'Android';
+  else if (/iphone|ipad|ios/i.test(ua)) os = 'iOS';
+  else if (/linux/i.test(ua)) os = 'Linux';
+
+  if (/mobile|android|iphone|ipod/i.test(ua)) deviceType = 'mobile';
+  else if (/ipad|tablet/i.test(ua)) deviceType = 'tablet';
+
+  return { browser, os, deviceType };
 }
 
-export function parseUserAgent(ua: string) {
-  const device_type = /iPad|Tablet|Android(?!.*Mobile)/i.test(ua)
-    ? 'tablet'
-    : /Mobile|Android|iPhone|iPad|iPod/i.test(ua)
-      ? 'mobile'
-      : 'desktop';
+export async function writeAuditLog({
+  userId,
+  action,
+  actionType,
+  entityType,
+  entityId,
+  metadata = {},
+}: WriteAuditParams): Promise<void> {
+  if (!userId) return;
+  const ua = navigator.userAgent;
+  const { browser, os, deviceType } = parseUserAgent(ua);
 
-  const browser = (() => {
-    if (/Edg\/|Edge\//i.test(ua)) return 'Edge';
-    if (/OPR\/|Opera\//i.test(ua)) return 'Opera';
-    if (/Chrome\/|CriOS\//i.test(ua)) return 'Chrome';
-    if (/Safari\//i.test(ua)) return 'Safari';
-    if (/Firefox\/|FxiOS\//i.test(ua)) return 'Firefox';
-    return 'Unknown';
-  })();
-
-  const os = (() => {
-    if (/Windows/i.test(ua)) return 'Windows';
-    if (/Mac/i.test(ua)) return 'macOS';
-    if (/Android/i.test(ua)) return 'Android';
-    if (/iOS|iPhone|iPad|iPod/i.test(ua)) return 'iOS';
-    if (/Linux/i.test(ua)) return 'Linux';
-    return 'Unknown';
-  })();
-
-  return { device_type, browser, os };
-}
-
-export async function getClientInfo() {
-  const user_agent = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const ip_address = await getClientIp();
-  const { device_type, browser, os } = parseUserAgent(user_agent);
-  return { ip_address, user_agent, device_type, browser, os };
-}
-
-export function deriveActionType(action: string): string | null {
-  const known = ['login', 'logout', 'signup', 'password_reset', 'create', 'update', 'delete', 'read', 'export'];
-  return known.includes(action) ? action : null;
+  await supabase.from('audit_logs').insert({
+    user_id: userId,
+    action,
+    action_type: actionType ?? null,
+    entity_type: entityType ?? null,
+    entity_id: entityId ?? null,
+    metadata,
+    user_agent: ua,
+    browser,
+    os,
+    device_type: deviceType,
+  });
 }
