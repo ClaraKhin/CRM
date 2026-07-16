@@ -7,6 +7,34 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "Content-Type, Authorization, X-Client-Info, Apikey",
 };
 
+function parseUserAgent(ua: string) {
+  const device_type = /iPad|Tablet|Android(?!.*Mobile)/i.test(ua)
+    ? "tablet"
+    : /Mobile|Android|iPhone|iPad|iPod/i.test(ua)
+      ? "mobile"
+      : "desktop";
+
+  const browser = (() => {
+    if (/Edg\/|Edge\//i.test(ua)) return "Edge";
+    if (/OPR\/|Opera\//i.test(ua)) return "Opera";
+    if (/Chrome\/|CriOS\//i.test(ua)) return "Chrome";
+    if (/Safari\//i.test(ua)) return "Safari";
+    if (/Firefox\/|FxiOS\//i.test(ua)) return "Firefox";
+    return "Unknown";
+  })();
+
+  const os = (() => {
+    if (/Windows/i.test(ua)) return "Windows";
+    if (/Mac/i.test(ua)) return "macOS";
+    if (/Android/i.test(ua)) return "Android";
+    if (/iOS|iPhone|iPad|iPod/i.test(ua)) return "iOS";
+    if (/Linux/i.test(ua)) return "Linux";
+    return "Unknown";
+  })();
+
+  return { device_type, browser, os };
+}
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { status: 200, headers: corsHeaders });
@@ -29,6 +57,11 @@ Deno.serve(async (req: Request) => {
 
     const body = await req.json();
     const { action } = body;
+
+    const forwarded = req.headers.get("x-forwarded-for");
+    const ip_address = forwarded?.split(",")[0]?.trim() || req.headers.get("cf-connecting-ip") || null;
+    const user_agent = req.headers.get("user-agent") || "";
+    const { device_type, browser, os } = parseUserAgent(user_agent);
 
     // === CREATE USER ===
     if (action === "create") {
@@ -85,6 +118,11 @@ Deno.serve(async (req: Request) => {
         action_type: "create",
         entity_type: "profile",
         entity_id: userId,
+        ip_address,
+        user_agent,
+        device_type,
+        browser,
+        os,
         metadata: { email, full_name: fullName, role: role ?? "sales_executive" }
       });
 
@@ -119,6 +157,11 @@ Deno.serve(async (req: Request) => {
         action_type: "delete",
         entity_type: "profile",
         entity_id: userId,
+        ip_address,
+        user_agent,
+        device_type,
+        browser,
+        os,
         metadata: { deleted_by: body.requestedBy }
       });
 

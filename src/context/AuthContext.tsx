@@ -8,6 +8,7 @@ import React, {
 } from 'react';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase, type Profile, type UserRole } from '../lib/supabase';
+import { deriveActionType, getClientInfo } from '../lib/audit';
 
 type AuthError = { message: string };
 
@@ -60,13 +61,22 @@ function pickAvatarColor(seed: string): string {
 async function writeAudit(
   userId: string | undefined,
   action: string,
-  metadata: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {},
+  entityId?: string
 ): Promise<void> {
   if (!userId) return;
+  const { ip_address, user_agent, device_type, browser, os } = await getClientInfo();
   await supabase.from('audit_logs').insert({
     user_id: userId,
     action,
-    metadata
+    action_type: deriveActionType(action),
+    entity_id: entityId ?? null,
+    metadata,
+    ip_address,
+    user_agent,
+    device_type,
+    browser,
+    os
   });
 }
 
