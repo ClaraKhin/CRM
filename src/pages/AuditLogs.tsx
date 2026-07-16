@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Flex,
+  Grid,
   HStack,
   Icon,
   Input,
@@ -42,6 +43,11 @@ import { Pagination } from '../components/ui/Pagination';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
+
+const getDeviceIcon = (deviceType: string | null) => {
+  if (deviceType === 'mobile') return SmartphoneIcon;
+  return MonitorIcon;
+};
 
 type AuditLog = {
   id: string;
@@ -118,11 +124,6 @@ export function AuditLogs() {
       browser: l.browser, os: l.os, created_at: l.created_at,
     })));
     toast({ title: 'Exported to CSV', status: 'success', duration: 1800, position: 'top-right' });
-  };
-
-  const getDeviceIcon = (deviceType: string | null) => {
-    if (deviceType === 'mobile') return SmartphoneIcon;
-    return MonitorIcon;
   };
 
   const openDetail = (log: AuditLog) => {
@@ -245,76 +246,78 @@ export function AuditLogs() {
       <Modal isOpen={detailOpen} onClose={() => setDetailOpen(false)} size="md" isCentered>
         <ModalOverlay backdropFilter="blur(4px)" />
         <ModalContent bg="app.surface" borderRadius="16px" overflow="hidden">
-          {selected && (() => {
-            const type = selected.action_type ?? selected.action;
-            const color = actionColor[type] ?? '#6b7488';
-            const DeviceIcon = getDeviceIcon(selected.device_type);
-            return (
-              <>
-                <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
-                  <Flex align="center" gap="10px">
-                    <Flex w="36px" h="36px" borderRadius="10px" bg={`${color}1a`} align="center" justify="center">
-                      <Box w="10px" h="10px" borderRadius="full" bg={color} />
-                    </Flex>
-                    <Box>
-                      <Text fontSize="15px" fontWeight="800">{selected.action}</Text>
-                      <Badge fontSize="9px" borderRadius="full" px="6px" py="1px" bg={`${color}1a`} color={color} textTransform="none">{type}</Badge>
-                    </Box>
-                  </Flex>
-                </ModalHeader>
-                <ModalCloseButton />
-                <ModalBody py="16px">
-                  <Box p="14px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
-                    <Text fontSize="10px" color="app.faint" mb="8px" letterSpacing="0.06em">ENTITY</Text>
-                    <Flex align="center" gap="8px">
-                      <Text fontSize="12px" fontWeight="600">{selected.entity_type ?? '—'}</Text>
-                      {selected.entity_id && <Text fontSize="11px" color="app.faint">ID: {selected.entity_id.slice(0, 12)}</Text>}
-                    </Flex>
-                  </Box>
-
-                  <Grid templateColumns="1fr 1fr" gap="10px" mb="12px">
-                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
-                      <Flex align="center" gap="6px" mb="4px"><Icon as={GlobeIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">IP ADDRESS</Text></Flex>
-                      <Text fontSize="12px" fontWeight="600">{selected.ip_address ?? '—'}</Text>
-                    </Box>
-                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
-                      <Flex align="center" gap="6px" mb="4px"><Icon as={DeviceIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">DEVICE</Text></Flex>
-                      <Text fontSize="12px" fontWeight="600">{selected.device_type ?? '—'}</Text>
-                      {selected.os && <Text fontSize="10px" color="app.faint">{selected.os}</Text>}
-                    </Box>
-                  </Grid>
-
-                  <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
-                    <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">BROWSER</Text>
-                    <Text fontSize="12px" fontWeight="600">{selected.browser ?? '—'}</Text>
-                  </Box>
-
-                  {selected.user_agent && (
-                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
-                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">USER AGENT</Text>
-                      <Text fontSize="10px" color="app.subtle" fontFamily="monospace" wordBreak="break-all" lineHeight="1.4">{selected.user_agent}</Text>
-                    </Box>
-                  )}
-
-                  {selected.metadata && Object.keys(selected.metadata).length > 0 && (
-                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
-                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="8px">METADATA ({Object.keys(selected.metadata).length} fields)</Text>
-                      <Box as="pre" fontSize="10px" color="app.subtle" fontFamily="monospace" whiteSpace="pre-wrap" wordBreak="break-all" lineHeight="1.4" m="0">
-                        {JSON.stringify(selected.metadata, null, 2)}
-                      </Box>
-                    </Box>
-                  )}
-
-                  <Flex justify="space-between" align="center" p="12px" bg="app.surfaceAlt" borderRadius="10px">
-                    <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint" letterSpacing="0.06em">TIMESTAMP</Text></Flex>
-                    <Text fontSize="11px" fontWeight="600">{new Date(selected.created_at).toLocaleString()}</Text>
-                  </Flex>
-                </ModalBody>
-              </>
-            );
-          })()}
+          {selected && <AuditLogDetail log={selected} />}
         </ModalContent>
       </Modal>
+    </>
+  );
+}
+
+function AuditLogDetail({ log }: { log: AuditLog }) {
+  const type = log.action_type ?? log.action;
+  const color = actionColor[type] ?? '#6b7488';
+  const DeviceIcon = getDeviceIcon(log.device_type);
+  return (
+    <>
+      <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+        <Flex align="center" gap="10px">
+          <Flex w="36px" h="36px" borderRadius="10px" bg={`${color}1a`} align="center" justify="center">
+            <Box w="10px" h="10px" borderRadius="full" bg={color} />
+          </Flex>
+          <Box>
+            <Text fontSize="15px" fontWeight="800">{log.action}</Text>
+            <Badge fontSize="9px" borderRadius="full" px="6px" py="1px" bg={`${color}1a`} color={color} textTransform="none">{type}</Badge>
+          </Box>
+        </Flex>
+      </ModalHeader>
+      <ModalCloseButton />
+      <ModalBody py="16px">
+        <Box p="14px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+          <Text fontSize="10px" color="app.faint" mb="8px" letterSpacing="0.06em">ENTITY</Text>
+          <Flex align="center" gap="8px">
+            <Text fontSize="12px" fontWeight="600">{log.entity_type ?? '—'}</Text>
+            {log.entity_id && <Text fontSize="11px" color="app.faint">ID: {log.entity_id}</Text>}
+          </Flex>
+        </Box>
+
+        <Grid templateColumns="1fr 1fr" gap="10px" mb="12px">
+          <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+            <Flex align="center" gap="6px" mb="4px"><Icon as={GlobeIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">IP ADDRESS</Text></Flex>
+            <Text fontSize="12px" fontWeight="600">{log.ip_address ?? '—'}</Text>
+          </Box>
+          <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+            <Flex align="center" gap="6px" mb="4px"><Icon as={DeviceIcon} boxSize="12px" color="app.faint" /><Text fontSize="9px" color="app.faint" letterSpacing="0.06em">DEVICE</Text></Flex>
+            <Text fontSize="12px" fontWeight="600">{log.device_type ?? '—'}</Text>
+            {log.os && <Text fontSize="10px" color="app.faint">{log.os}</Text>}
+          </Box>
+        </Grid>
+
+        <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+          <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">BROWSER</Text>
+          <Text fontSize="12px" fontWeight="600">{log.browser ?? '—'}</Text>
+        </Box>
+
+        {log.user_agent && (
+          <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+            <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">USER AGENT</Text>
+            <Text fontSize="10px" color="app.subtle" fontFamily="monospace" wordBreak="break-all" lineHeight="1.4">{log.user_agent}</Text>
+          </Box>
+        )}
+
+        {log.metadata && Object.keys(log.metadata).length > 0 && (
+          <Box p="12px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
+            <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="8px">METADATA ({Object.keys(log.metadata).length} fields)</Text>
+            <Box as="pre" fontSize="10px" color="app.subtle" fontFamily="monospace" whiteSpace="pre-wrap" wordBreak="break-all" lineHeight="1.4" m="0">
+              {JSON.stringify(log.metadata, null, 2)}
+            </Box>
+          </Box>
+        )}
+
+        <Flex justify="space-between" align="center" p="12px" bg="app.surfaceAlt" borderRadius="10px">
+          <Flex align="center" gap="6px"><Icon as={CalendarIcon} boxSize="12px" color="app.faint" /><Text fontSize="10px" color="app.faint" letterSpacing="0.06em">TIMESTAMP</Text></Flex>
+          <Text fontSize="11px" fontWeight="600">{new Date(log.created_at).toLocaleString()}</Text>
+        </Flex>
+      </ModalBody>
     </>
   );
 }
