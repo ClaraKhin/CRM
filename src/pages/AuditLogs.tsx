@@ -274,9 +274,13 @@ function AuditLogDetail({ log }: { log: AuditLog }) {
       <ModalBody py="16px">
         <Box p="14px" bg="app.surfaceAlt" borderRadius="10px" mb="12px">
           <Text fontSize="10px" color="app.faint" mb="8px" letterSpacing="0.06em">ENTITY</Text>
-          <Flex align="center" gap="8px">
-            <Text fontSize="12px" fontWeight="600">{log.entity_type ?? '—'}</Text>
-            {log.entity_id && <Text fontSize="11px" color="app.faint">ID: {log.entity_id}</Text>}
+          <Flex align="center" gap="8px" flexWrap="wrap">
+            <Text fontSize="12px" fontWeight="600">{log.entity_type ?? 'User'}</Text>
+            {log.entity_id ? (
+              <Text fontSize="11px" color="app.faint">Entity ID: {log.entity_id}</Text>
+            ) : (
+              <Text fontSize="11px" color="app.faint">User ID: {log.user_id ?? '—'}</Text>
+            )}
           </Flex>
         </Box>
 
