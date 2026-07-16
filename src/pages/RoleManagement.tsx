@@ -253,7 +253,7 @@ export function RoleManagement() {
                               <Icon as={enabled ? CheckCircleIcon : ShieldCheckIcon} boxSize="14px" color={enabled ? '#1c8a5c' : 'app.faint'} />
                               <Text fontSize="12px" fontWeight={enabled ? '600' : '500'} color={enabled ? 'app.text' : 'app.subtle'}>{perm.label}</Text>
                             </Flex>
-                            <Switch isChecked={enabled} colorScheme="orange" size="sm" />
+                            <Switch isChecked={enabled} onChange={() => togglePerm(perm.key)} colorScheme="orange" size="sm" />
                           </Flex>
                         );
                       })}
@@ -289,7 +289,7 @@ export function RoleManagement() {
                   {group.perms.map((perm) => (
                     <Flex key={perm.key} align="center" justify="space-between" p="8px" bg="app.surfaceAlt" borderRadius="8px" cursor="pointer" onClick={() => toggleDraftPerm(perm.key)}>
                       <Text fontSize="12px" color={permDraft[perm.key] ? 'app.text' : 'app.subtle'} fontWeight={permDraft[perm.key] ? '600' : '500'}>{perm.label}</Text>
-                      <Switch isChecked={!!permDraft[perm.key]} colorScheme="orange" size="sm" />
+                      <Switch isChecked={!!permDraft[perm.key]} onChange={() => toggleDraftPerm(perm.key)} colorScheme="orange" size="sm" />
                     </Flex>
                   ))}
                 </Grid>

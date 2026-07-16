@@ -53,6 +53,7 @@ import { FormModal } from '../components/ui/FormModal';
 import { Pagination } from '../components/ui/Pagination';
 import { useCrudList, useCrudMutation, exportToCsv } from '../lib/crud';
 import { supabase } from '../lib/supabase';
+import { useProfileOwners, ownerById as resolveOwner } from '../lib/useProfileOwners';
 import { useAuth } from '../context/AuthContext';
 
 type Person = { id: string; name: string; email: string; phone: string; company: string; avatar_color: string };
@@ -169,8 +170,13 @@ export function Leads() {
     supabase.from('people').select('*').eq('user_id', session.user.id).then(({ data }) => setPeople((data ?? []) as Person[]));
   }, [session]);
 
+  const { owners: profileOwners } = useProfileOwners();
+
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
-  const ownerById = (id: string) => OWNERS.find((o) => o.id === id) ?? OWNERS[0];
+  const ownerById = (id: string) => {
+    const o = resolveOwner(profileOwners, id);
+    return { id: o.id, name: o.name, initials: o.initials, color: o.color, textColor: o.textColor };
+  };
 
   const openCreate = () => {
     setEditing(null);
@@ -610,7 +616,7 @@ export function Leads() {
         <Grid templateColumns="1fr 1fr" gap="10px">
           <FormControl>
             <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Owner</FormLabel>
-            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">{OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
+            <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">{profileOwners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}</Select>
           </FormControl>
           <FormControl>
             <FormLabel fontSize="12px" fontWeight="600" color="app.subtle">Deal value ($)</FormLabel>

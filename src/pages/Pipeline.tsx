@@ -30,6 +30,7 @@ import { FormModal } from '../components/ui/FormModal';
 import { ActivityTimeline } from '../components/crm/ActivityTimeline';
 import { DocumentManager } from '../components/crm/DocumentManager';
 import { supabase } from '../lib/supabase';
+import { useProfileOwners, ownerById as resolveOwner } from '../lib/useProfileOwners';
 import { useAuth } from '../context/AuthContext';
 
 type Person = { id: string; name: string; company: string; avatar_color: string };
@@ -112,9 +113,14 @@ export function Pipeline() {
 
   useEffect(() => { load(); }, [load]);
 
+  const { owners: profileOwners } = useProfileOwners();
+
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
   const customerById = (id: string | null) => customers.find((c) => c.id === id) ?? null;
-  const ownerById = (id: string) => OWNERS.find((o) => o.id === id) ?? OWNERS[0];
+  const ownerById = (id: string) => {
+    const o = resolveOwner(profileOwners, id);
+    return { id: o.id, name: o.name, initials: o.initials, color: o.color, textColor: o.textColor };
+  };
 
   const openValue = useMemo(() => deals.filter((d) => d.stage !== 'Won' && d.stage !== 'Lost').reduce((s, d) => s + d.value, 0), [deals]);
   const wonValue = useMemo(() => deals.filter((d) => d.stage === 'Won').reduce((s, d) => s + d.value, 0), [deals]);
@@ -360,7 +366,7 @@ export function Pipeline() {
           <FormControl>
             <FormLabel fontSize="12px">Owner</FormLabel>
             <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
-              {OWNERS.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+              {profileOwners.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
             </Select>
           </FormControl>
           <FormControl>

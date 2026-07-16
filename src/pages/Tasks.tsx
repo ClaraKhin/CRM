@@ -70,6 +70,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { FormModal } from '../components/ui/FormModal';
 import { Card } from '../components/ui/Card';
 import { supabase } from '../lib/supabase';
+import { useProfileOwners, ownerById as getOwnerById, type ProfileOwner } from '../lib/useProfileOwners';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv } from '../lib/crud';
 
@@ -308,6 +309,12 @@ export function Tasks() {
 
   useEffect(() => { load(); }, [load]);
 
+  useEffect(() => {
+    const handler = () => load();
+    window.addEventListener('profiles-updated', handler);
+    return () => window.removeEventListener('profiles-updated', handler);
+  }, [load]);
+
   const subtasksFor = (parentId: string) => subtasks.filter((s) => s.parent_id === parentId);
   const commentsFor = (taskId: string) => comments.filter((c) => c.task_id === taskId && !c.parent_comment_id);
   const personName = (personId: string | null) => people.find((p) => p.id === personId)?.name ?? 'Unknown';
@@ -371,6 +378,7 @@ export function Tasks() {
     if (!task) return;
     const newDone = !task.done;
     updateTaskState(id, { done: newDone, status: newDone ? 'Done' : 'To Do' });
+    setDetailTask((prev) => prev ? { ...prev, done: newDone, status: newDone ? 'Done' : 'To Do' } : prev);
     await supabase.from('tasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', id).eq('user_id', session!.user.id);
   };
 
@@ -879,7 +887,7 @@ export function Tasks() {
                         </Box>
 
                         <Flex gap="8px" pt="4px">
-                          {!detailTask.done && <Button flex="1" h="38px" borderRadius="10px" bg="#1c8a5c" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#167a4e' }} leftIcon={<CheckCircleIcon size={14} />} onClick={() => { toggleDone(detailTask.id); }}>Mark done</Button>}
+                          {!detailTask.done && <Button flex="1" h="38px" borderRadius="10px" bg="#1c8a5c" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: '#167a4e' }} leftIcon={<CheckCircleIcon size={14} />} onClick={() => toggleDone(detailTask.id)}>Mark done</Button>}
                           <Button flex="1" h="38px" borderRadius="10px" bg="navy.600" color="white" fontSize="13px" fontWeight="600" _hover={{ bg: 'navy.500' }} onClick={() => { detailModal.onClose(); openEdit(detailTask); }}>Edit</Button>
                           <Button flex="1" h="38px" borderRadius="10px" variant="outline" borderColor="#fde8e8" color="#c23c3c" fontSize="13px" fontWeight="600" _hover={{ bg: '#fde8e8' }} leftIcon={<Trash2Icon size={14} />} onClick={() => { setDeleteId(detailTask.id); confirmDel.onOpen(); }}>Delete</Button>
                         </Flex>

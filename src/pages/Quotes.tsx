@@ -365,7 +365,7 @@ export function Quotes() {
                   <Flex gap="8px" pt="4px">
                     {detailQuote.status === 'Draft' && <Button size="sm" flex="1" bg="#1c8a5c" color="white" _hover={{ bg: '#167a4e' }} borderRadius="9px" fontSize="12px" leftIcon={<MailIcon size={13} />} onClick={() => { sendForApproval(detailQuote); detailModal.onClose(); }}>Send</Button>}
                     <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailQuote); }}>Edit</Button>
-                    <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailQuote.id); confirmDel.onOpen(); }}>Delete</Button>
+                    <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailQuote.id); detailModal.onClose(); confirmDel.onOpen(); }}>Delete</Button>
                   </Flex>
                 </Stack>
               );

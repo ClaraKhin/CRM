@@ -377,7 +377,7 @@ export function Invoices() {
                   <Flex gap="8px" pt="4px">
                     {detailInvoice.status !== 'Paid' && <Button size="sm" flex="1" bg="#1c8a5c" color="white" _hover={{ bg: '#167a4e' }} borderRadius="9px" fontSize="12px" onClick={() => { markPaid(detailInvoice); detailModal.onClose(); }}>Mark paid</Button>}
                     <Button size="sm" flex="1" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" onClick={() => { detailModal.onClose(); openEdit(detailInvoice); }}>Edit</Button>
-                    <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailInvoice.id); confirmDel.onOpen(); }}>Delete</Button>
+                    <Button size="sm" flex="1" variant="outline" borderColor="#c23c3c" color="#c23c3c" borderRadius="9px" fontSize="12px" leftIcon={<Trash2Icon size={13} />} onClick={() => { setDeleteId(detailInvoice.id); detailModal.onClose(); confirmDel.onOpen(); }}>Delete</Button>
                   </Flex>
                 </Stack>
               );
