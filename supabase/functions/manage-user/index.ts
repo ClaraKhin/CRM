@@ -32,16 +32,24 @@ Deno.serve(async (req: Request) => {
 
     // === CREATE USER ===
     if (action === "create") {
-      const { email, password, fullName, role, avatarColor } = body;
+      const { password, role, avatarColor } = body;
+      const email = body.email?.trim().toLowerCase();
+      const fullName = body.fullName?.trim();
       if (!email || !password || !fullName) {
         return new Response(
           JSON.stringify({ error: "email, password, and fullName are required" }),
           { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return new Response(
+          JSON.stringify({ error: "Invalid email format" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const { data: existing } = await admin.auth.admin.listUsers();
-      const found = existing.users.find((u) => u.email === email);
+      const found = existing.users.find((u) => u.email?.toLowerCase() === email);
       if (found) {
         return new Response(
           JSON.stringify({ error: "A user with this email already exists" }),

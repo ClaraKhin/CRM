@@ -93,8 +93,14 @@ export function UserManagement() {
   };
 
   const handleSubmit = async () => {
-    if (!form.email.trim() || !form.full_name.trim()) {
+    const email = form.email.trim().toLowerCase();
+    const fullName = form.full_name.trim();
+    if (!email || !fullName) {
       toast({ title: 'Email and name are required', status: 'error', duration: 2000, position: 'top-right' });
+      return;
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      toast({ title: 'Please enter a valid email address', status: 'error', duration: 2000, position: 'top-right' });
       return;
     }
     setSaving(true);
@@ -111,7 +117,7 @@ export function UserManagement() {
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ action: 'update_role', userId: editingId, role: form.role, fullName: form.full_name, avatarColor: form.avatar_color }),
+          body: JSON.stringify({ action: 'update_role', userId: editingId, role: form.role, fullName, avatarColor: form.avatar_color }),
         });
         if (!res.ok) {
           const err = await res.json();
@@ -132,6 +138,11 @@ export function UserManagement() {
         setSaving(false);
         return;
       }
+      if (users.some((u) => u.email.toLowerCase() === email)) {
+        toast({ title: 'A user with this email already exists', status: 'error', duration: 3000, position: 'top-right' });
+        setSaving(false);
+        return;
+      }
       const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/manage-user`;
       const headers: Record<string, string> = {
         'Content-Type': 'application/json',
@@ -142,7 +153,7 @@ export function UserManagement() {
         const res = await fetch(apiUrl, {
           method: 'POST',
           headers,
-          body: JSON.stringify({ action: 'create', email: form.email, password: form.password, fullName: form.full_name, role: form.role, avatarColor: form.avatar_color }),
+          body: JSON.stringify({ action: 'create', email, password: form.password, fullName, role: form.role, avatarColor: form.avatar_color }),
         });
         if (!res.ok) {
           const err = await res.json();
