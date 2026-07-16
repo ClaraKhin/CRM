@@ -28,7 +28,6 @@ import {
   Tbody,
   Td,
   Text,
-  Textarea,
   Th,
   Thead,
   Tr,
@@ -36,6 +35,7 @@ import {
   useToast } from '@chakra-ui/react';
 import {
   EditIcon,
+  EyeIcon,
   FileIcon,
   FileTextIcon,
   FilterIcon,
@@ -74,6 +74,13 @@ const ENTITY_COLORS: Record<string, string> = {
   deal: '#8374d9', customer: '#2d9c79', lead: '#3355c9', quote: '#e9683f', invoice: '#b5760f', product: '#d85a9a', general: '#6b7488',
 };
 
+function isImage(doc: Doc) {
+  return doc.file_type.includes('image') || /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.name);
+}
+function isPdf(doc: Doc) {
+  return doc.file_type.includes('pdf') || doc.name.endsWith('.pdf');
+}
+
 export function Documents() {
   const toast = useToast();
   const { session, profile } = useAuth();
@@ -88,11 +95,14 @@ export function Documents() {
   const [uploading, setUploading] = useState(false);
   const uploadModal = useDisclosure();
   const editModal = useDisclosure();
+  const viewModal = useDisclosure();
   const [editId, setEditId] = useState<string | null>(null);
-  const [uploadForm, setUploadForm] = useState({ name: '', entity_type: 'general', description: '' });
-  const [editForm, setEditForm] = useState({ name: '', entity_type: 'general' });
+  const [viewDoc, setViewDoc] = useState<Doc | null>(null);
+  const [uploadForm, setUploadForm] = useState({ name: '', entity_type: 'general' });
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [editFile, setEditFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     if (!session?.user) return;
@@ -133,7 +143,7 @@ export function Documents() {
   const formatSize = (bytes: number) => bytes < 1024 ? `${bytes}B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)}KB` : `${(bytes / 1048576).toFixed(1)}MB`;
 
   const openUploadModal = () => {
-    setUploadForm({ name: '', entity_type: 'general', description: '' });
+    setUploadForm({ name: '', entity_type: 'general' });
     setSelectedFile(null);
     uploadModal.onOpen();
   };
@@ -165,23 +175,42 @@ export function Documents() {
 
   const openEditModal = (doc: Doc) => {
     setEditId(doc.id);
-    setEditForm({ name: doc.name, entity_type: doc.entity_type });
+    setEditFile(null);
     editModal.onOpen();
   };
 
   const handleEdit = async () => {
     if (!editId || !session?.user) return;
-    const { data, error } = await supabase.from('documents').update({ name: editForm.name, entity_type: editForm.entity_type }).eq('id', editId).select().maybeSingle();
+    if (!editFile) { toast({ title: 'Select a new file to upload', status: 'warning', duration: 2500, position: 'top-right' }); return; }
+    if (editFile.size > 25 * 1024 * 1024) { toast({ title: 'File too large (max 25MB)', status: 'error', duration: 3000, position: 'top-right' }); return; }
+    setUploading(true);
+    const oldDoc = docs.find((d) => d.id === editId);
+    const filePath = `${session.user.id}/${oldDoc?.entity_type ?? 'general'}/${Date.now()}-${editFile.name}`;
+    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, editFile);
+    const fileUrl = upErr ? `local:${editFile.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+    const { data, error } = await supabase.from('documents').update({
+      name: editFile.name,
+      file_url: fileUrl,
+      file_type: editFile.type || 'file',
+      file_size: editFile.size,
+    }).eq('id', editId).select().maybeSingle();
     if (error) {
       toast({ title: 'Update failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      setUploading(false);
       return;
     }
     if (data) {
       setDocs((prev) => prev.map((d) => d.id === editId ? { ...d, ...data } as Doc : d));
-      await writeAuditLog({ userId: session.user.id, action: 'document_update', actionType: 'update', entityType: 'document', entityId: editId, metadata: { name: editForm.name } });
-      toast({ title: 'Document updated', status: 'success', duration: 2000, position: 'top-right' });
+      await writeAuditLog({ userId: session.user.id, action: 'document_reupload', actionType: 'update', entityType: 'document', entityId: editId, metadata: { name: editFile.name } });
+      toast({ title: 'File replaced', status: 'success', duration: 2000, position: 'top-right' });
       editModal.onClose();
     }
+    setUploading(false);
+  };
+
+  const openViewModal = (doc: Doc) => {
+    setViewDoc(doc);
+    viewModal.onOpen();
   };
 
   const handleDelete = async () => {
@@ -203,6 +232,14 @@ export function Documents() {
   const canDelete = (doc: Doc) => doc.user_id === session?.user?.id;
 
   const stats = ENTITY_TYPES.slice(1).map((t) => ({ type: t, count: docs.filter((d) => d.entity_type === t).length }));
+
+  const DocIcon = ({ doc, size = 15 }: { doc: Doc; size?: number }) => {
+    const isImg = isImage(doc);
+    const isPdfFile = isPdf(doc);
+    const DIcon = isPdfFile || isImg ? FileTextIcon : FileIcon;
+    const color = ENTITY_COLORS[doc.entity_type] ?? '#6b7488';
+    return <DIcon size={size} color={color} />;
+  };
 
   return (
     <>
@@ -240,7 +277,6 @@ export function Documents() {
         </Card>
       </Grid>
 
-      {/* Category stats */}
       <Grid templateColumns={{ base: 'repeat(2, 1fr)', md: 'repeat(4, 1fr)' }} gap="12px" mb="18px">
         {stats.map((s) => (
           <Card key={s.type} p="12px" cursor="pointer" onClick={() => setEntityFilter(s.type)} _hover={{ borderColor: ENTITY_COLORS[s.type] ?? '#6b7488' }} transition="border-color .15s ease">
@@ -268,7 +304,7 @@ export function Documents() {
           </Select>
           <HStack spacing="2px" bg="app.surfaceAlt" borderRadius="9px" p="2px" ml="auto">
             <Button size="xs" borderRadius="7px" fontSize="11px" bg={view === 'table' ? 'navy.600' : 'transparent'} color={view === 'table' ? 'white' : 'app.subtle'} _hover={{ bg: view === 'table' ? 'navy.500' : 'app.surface' }} leftIcon={<ListIcon size={12} />} onClick={() => setView('table')}>Table</Button>
-            <Button size="xs" borderRadius="7px" fontSize="11px" bg={view === 'grid' ? 'navy.600' : 'transparent'} color={view === 'grid' ? 'white' : 'app.subtle'} _hover={{ bg: view === 'grid' ? 'navy.500' : 'app.surface' }} leftIcon={<LayoutGridIcon size={12} />} onClick={() => setView('grid')}>List</Button>
+            <Button size="xs" borderRadius="7px" fontSize="11px" bg={view === 'grid' ? 'navy.600' : 'transparent'} color={view === 'grid' ? 'white' : 'app.subtle'} _hover={{ bg: view === 'grid' ? 'navy.500' : 'app.surface' }} leftIcon={<LayoutGridIcon size={12} />} onClick={() => setView('grid')}>Grid</Button>
           </HStack>
           <Text fontSize="12px" color="app.subtle">{filtered.length} files</Text>
         </Flex>
@@ -287,21 +323,18 @@ export function Documents() {
                   <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', md: 'table-cell' }}>Uploaded By</Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', md: 'table-cell' }}>Size</Th>
                   <Th borderColor="app.border" fontSize="10px" color="app.faint" display={{ base: 'none', lg: 'table-cell' }}>Date</Th>
-                  <Th borderColor="app.border" w="80px"></Th>
+                  <Th borderColor="app.border" w="120px"></Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {filtered.map((doc) => {
-                  const isPdf = doc.file_type.includes('pdf') || doc.name.endsWith('.pdf');
-                  const isImg = doc.file_type.includes('image') || /\.(png|jpe?g|gif|webp)$/i.test(doc.name);
-                  const DIcon = isPdf || isImg ? FileTextIcon : FileIcon;
                   const color = ENTITY_COLORS[doc.entity_type] ?? '#6b7488';
                   return (
-                    <Tr key={doc.id} _hover={{ bg: 'app.surfaceAlt' }}>
+                    <Tr key={doc.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => openViewModal(doc)}>
                       <Td borderColor="app.border">
                         <Flex align="center" gap="10px">
                           <Flex w="30px" h="30px" borderRadius="8px" bg={`${color}1a`} align="center" justify="center" flexShrink={0}>
-                            <DIcon size={15} color={color} />
+                            <DocIcon doc={doc} />
                           </Flex>
                           <Box minW="0">
                             <Text fontSize="12px" fontWeight="600" noOfLines={1}>{doc.name}</Text>
@@ -323,9 +356,9 @@ export function Documents() {
                       </Td>
                       <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }} fontSize="12px" color="app.subtle">{formatSize(doc.file_size)}</Td>
                       <Td borderColor="app.border" display={{ base: 'none', lg: 'table-cell' }} fontSize="12px" color="app.subtle">{new Date(doc.created_at).toLocaleDateString()}</Td>
-                      <Td borderColor="app.border">
+                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
                         <HStack spacing="2px">
-                          {!doc.file_url.startsWith('local:') && <Button as="a" href={doc.file_url} target="_blank" size="xs" variant="ghost" fontSize="11px" color="brand.600">View</Button>}
+                          <Button size="xs" variant="ghost" color="brand.600" fontSize="11px" leftIcon={<EyeIcon size={13} />} onClick={() => openViewModal(doc)}>View</Button>
                           {canDelete(doc) && <><Button size="xs" variant="ghost" color="app.subtle" onClick={() => openEditModal(doc)}><EditIcon size={13} /></Button><Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(doc.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button></>}
                         </HStack>
                       </Td>
@@ -339,15 +372,12 @@ export function Documents() {
           <Box px={{ base: '14px', md: '20px' }} py="16px">
             <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)', xl: 'repeat(3, 1fr)' }} gap="14px">
               {filtered.map((doc) => {
-                const isPdf = doc.file_type.includes('pdf') || doc.name.endsWith('.pdf');
-                const isImg = doc.file_type.includes('image') || /\.(png|jpe?g|gif|webp)$/i.test(doc.name);
-                const DIcon = isPdf || isImg ? FileTextIcon : FileIcon;
                 const color = ENTITY_COLORS[doc.entity_type] ?? '#6b7488';
                 return (
-                  <Card key={doc.id} p="16px" _hover={{ borderColor: color }} transition="border-color .15s ease">
+                  <Card key={doc.id} p="16px" _hover={{ borderColor: color, boxShadow: '0 4px 16px rgba(0,0,0,0.05)' }} transition="all .15s ease" cursor="pointer" onClick={() => openViewModal(doc)}>
                     <Flex align="center" gap="10px">
                       <Flex w="36px" h="36px" borderRadius="10px" bg={`${color}1a`} align="center" justify="center" flexShrink={0}>
-                        <DIcon size={17} color={color} />
+                        <DocIcon doc={doc} size={17} />
                       </Flex>
                       <Box flex="1" minW="0">
                         <Text fontSize="12px" fontWeight="700" noOfLines={1}>{doc.name}</Text>
@@ -358,11 +388,11 @@ export function Documents() {
                       <Avatar size="2xs" name={doc.uploaded_by_name ?? 'Unknown'} bg="app.surfaceAlt" color="app.subtle" fontSize="8px" />
                       <Text fontSize="10px" color="app.subtle" noOfLines={1}>{doc.uploaded_by_name ?? 'Unknown'}</Text>
                     </Flex>
-                    <Flex mt="12px" align="center" justify="space-between">
+                    <Flex mt="12px" align="center" justify="space-between" onClick={(e) => e.stopPropagation()}>
                       <Badge fontSize="9px" borderRadius="full" px="6px" py="2px" bg={`${color}1a`} color={color} textTransform="none">{ENTITY_LABELS[doc.entity_type] ?? doc.entity_type}</Badge>
                       <HStack spacing="2px">
-                        {!doc.file_url.startsWith('local:') && <Button as="a" href={doc.file_url} target="_blank" size="xs" variant="ghost" fontSize="11px" color="brand.600">View</Button>}
-                        {canDelete(doc) && <Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(doc.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button>}
+                        <Button size="xs" variant="ghost" color="brand.600" fontSize="11px" leftIcon={<EyeIcon size={13} />} onClick={() => openViewModal(doc)}>View</Button>
+                        {canDelete(doc) && <><Button size="xs" variant="ghost" color="app.subtle" onClick={() => openEditModal(doc)}><EditIcon size={13} /></Button><Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(doc.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button></>}
                       </HStack>
                     </Flex>
                   </Card>
@@ -372,6 +402,89 @@ export function Documents() {
           </Box>
         )}
       </Card>
+
+      {/* View Details Modal */}
+      <Modal isOpen={viewModal.isOpen} onClose={viewModal.onClose} size="xl" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="16px" maxH="90vh" overflow="hidden" display="flex" flexDir="column">
+          {viewDoc && (() => {
+            const color = ENTITY_COLORS[viewDoc.entity_type] ?? '#6b7488';
+            const img = isImage(viewDoc);
+            const pdf = isPdf(viewDoc);
+            return (
+              <>
+                <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+                  <Flex align="center" gap="10px">
+                    <Flex w="34px" h="34px" borderRadius="10px" bg={`${color}1a`} align="center" justify="center" flexShrink={0}>
+                      <DocIcon doc={viewDoc} size={16} />
+                    </Flex>
+                    <Box flex="1" minW="0">
+                      <Text fontSize="15px" fontWeight="800" noOfLines={1}>{viewDoc.name}</Text>
+                      <Text fontSize="11px" color="app.subtle">{formatSize(viewDoc.file_size)} · {ENTITY_LABELS[viewDoc.entity_type] ?? viewDoc.entity_type} · {new Date(viewDoc.created_at).toLocaleDateString()}</Text>
+                    </Box>
+                  </Flex>
+                </ModalHeader>
+                <ModalCloseButton />
+                <ModalBody py="18px" overflowY="auto">
+                  {/* File preview area */}
+                  <Box borderRadius="12px" overflow="hidden" bg="app.surfaceAlt" border="1px solid" borderColor="app.border" mb="16px" minH="300px" display="flex" alignItems="center" justifyContent="center">
+                    {viewDoc.file_url.startsWith('local:') ? (
+                      <Stack align="center" spacing="8px" py="40px">
+                        <FileIcon size={40} color="app.faint" />
+                        <Text fontSize="13px" color="app.subtle">Preview not available</Text>
+                        <Text fontSize="11px" color="app.faint">File stored locally</Text>
+                      </Stack>
+                    ) : img ? (
+                      <Box w="full" display="flex" justifyContent="center" p="12px">
+                        <img src={viewDoc.file_url} alt={viewDoc.name} style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '8px', objectFit: 'contain' }} />
+                      </Box>
+                    ) : pdf ? (
+                      <iframe src={viewDoc.file_url} style={{ width: '100%', height: '500px', border: 'none' }} title={viewDoc.name} />
+                    ) : (
+                      <Stack align="center" spacing="8px" py="40px">
+                        <FileIcon size={40} color="app.faint" />
+                        <Text fontSize="13px" color="app.subtle">No preview available</Text>
+                        <Button as="a" href={viewDoc.file_url} target="_blank" size="sm" bg="navy.600" color="white" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Download</Button>
+                      </Stack>
+                    )}
+                  </Box>
+
+                  {/* Metadata grid */}
+                  <Grid templateColumns={{ base: '1fr', md: '1fr 1fr' }} gap="10px">
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">UPLOADED BY</Text>
+                      <Flex align="center" gap="8px">
+                        <Avatar size="2xs" name={viewDoc.uploaded_by_name ?? 'Unknown'} bg="app.surfaceAlt" color="app.subtle" />
+                        <Box minW="0">
+                          <Text fontSize="12px" fontWeight="600" noOfLines={1}>{viewDoc.uploaded_by_name ?? 'Unknown'}</Text>
+                          <Text fontSize="10px" color="app.faint" noOfLines={1}>{viewDoc.uploaded_by_email ?? ''}</Text>
+                        </Box>
+                      </Flex>
+                    </Box>
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">FILE TYPE</Text>
+                      <Text fontSize="12px" fontWeight="600">{viewDoc.file_type || 'Unknown'}</Text>
+                    </Box>
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">CATEGORY</Text>
+                      <Badge fontSize="10px" borderRadius="full" px="6px" py="2px" bg={`${color}1a`} color={color} textTransform="none">{ENTITY_LABELS[viewDoc.entity_type] ?? viewDoc.entity_type}</Badge>
+                    </Box>
+                    <Box p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                      <Text fontSize="9px" color="app.faint" letterSpacing="0.06em" mb="4px">FILE SIZE</Text>
+                      <Text fontSize="12px" fontWeight="600">{formatSize(viewDoc.file_size)}</Text>
+                    </Box>
+                  </Grid>
+                </ModalBody>
+                <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
+                  {!viewDoc.file_url.startsWith('local:') && <Button as="a" href={viewDoc.file_url} target="_blank" mr="auto" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Open in new tab</Button>}
+                  {canDelete(viewDoc) && <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<EditIcon size={13} />} onClick={() => { viewModal.onClose(); openEditModal(viewDoc); }}>Replace file</Button>}
+                  <Button variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={viewModal.onClose}>Close</Button>
+                </ModalFooter>
+              </>
+            );
+          })()}
+        </ModalContent>
+      </Modal>
 
       {/* Upload Modal */}
       <Modal isOpen={uploadModal.isOpen} onClose={uploadModal.onClose} size="lg" isCentered>
@@ -427,34 +540,65 @@ export function Documents() {
         </ModalContent>
       </Modal>
 
-      {/* Edit Modal */}
+      {/* Edit / Re-upload Modal */}
       <Modal isOpen={editModal.isOpen} onClose={editModal.onClose} size="md" isCentered>
         <ModalOverlay backdropFilter="blur(4px)" />
         <ModalContent bg="app.surface" borderRadius="16px">
           <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
             <Flex align="center" gap="10px">
               <Flex w="34px" h="34px" borderRadius="10px" bg="#e9683f1a" align="center" justify="center"><EditIcon size={16} color="#e9683f" /></Flex>
-              <Text fontSize="15px" fontWeight="800">Edit Document</Text>
+              <Box>
+                <Text fontSize="15px" fontWeight="800">Replace File</Text>
+                <Text fontSize="11px" color="app.subtle">Upload a new version of this document</Text>
+              </Box>
             </Flex>
           </ModalHeader>
           <ModalCloseButton />
           <ModalBody py="18px">
-            <Stack spacing="14px">
-              <FormControl>
-                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Document name</FormLabel>
-                <Input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px" />
-              </FormControl>
-              <FormControl>
-                <FormLabel fontSize="11px" color="app.subtle" mb="6px">Category</FormLabel>
-                <Select value={editForm.entity_type} onChange={(e) => setEditForm({ ...editForm, entity_type: e.target.value })} borderRadius="9px" borderColor="app.border" fontSize="13px">
-                  {['general', 'lead', 'deal', 'customer', 'task', 'invoice', 'quote'].map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-                </Select>
-              </FormControl>
-            </Stack>
+            {editId && (() => {
+              const doc = docs.find((d) => d.id === editId);
+              if (!doc) return null;
+              const color = ENTITY_COLORS[doc.entity_type] ?? '#6b7488';
+              return (
+                <Box mb="14px" p="12px" bg="app.surfaceAlt" borderRadius="10px">
+                  <Flex align="center" gap="10px">
+                    <Flex w="32px" h="32px" borderRadius="8px" bg={`${color}1a`} align="center" justify="center" flexShrink={0}>
+                      <DocIcon doc={doc} size={15} />
+                    </Flex>
+                    <Box minW="0">
+                      <Text fontSize="12px" fontWeight="600" noOfLines={1}>{doc.name}</Text>
+                      <Text fontSize="10px" color="app.faint">{formatSize(doc.file_size)} · {new Date(doc.created_at).toLocaleDateString()}</Text>
+                    </Box>
+                  </Flex>
+                </Box>
+              );
+            })()}
+            <FormControl>
+              <FormLabel fontSize="11px" color="app.subtle" mb="6px">Select new file</FormLabel>
+              <Box
+                onClick={() => editFileRef.current?.click()}
+                border="2px dashed" borderColor="app.border" borderRadius="12px" py="24px" cursor="pointer"
+                _hover={{ borderColor: '#e9683f', bg: 'app.surfaceAlt' }} transition="all .15s ease" textAlign="center">
+                {editFile ? (
+                  <Flex align="center" justify="center" gap="8px">
+                    <FileIcon size={18} color="#e9683f" />
+                    <Text fontSize="13px" fontWeight="600">{editFile.name}</Text>
+                    <Text fontSize="11px" color="app.faint">({(editFile.size / 1024).toFixed(1)} KB)</Text>
+                  </Flex>
+                ) : (
+                  <Stack align="center" spacing="4px">
+                    <UploadIcon size={22} color="app.faint" />
+                    <Text fontSize="12px" color="app.subtle">Click to select a new file</Text>
+                    <Text fontSize="10px" color="app.faint">Max 25MB</Text>
+                  </Stack>
+                )}
+                <input ref={editFileRef} type="file" hidden onChange={(e) => setEditFile(e.target.files?.[0] ?? null)} />
+              </Box>
+            </FormControl>
           </ModalBody>
           <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
             <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={editModal.onClose}>Cancel</Button>
-            <Button bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" fontWeight="600" onClick={handleEdit} leftIcon={<EditIcon size={14} />}>Save changes</Button>
+            <Button bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" fontWeight="600" onClick={handleEdit} isLoading={uploading} leftIcon={<UploadIcon size={14} />}>Replace file</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
