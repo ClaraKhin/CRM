@@ -20,7 +20,6 @@ import {
   Select,
   Spinner,
   Stack,
-  Switch,
   Text,
   Textarea,
   useDisclosure,
@@ -67,6 +66,10 @@ const RESOURCES: ResourceDef[] = [
   { key: 'quotes', label: 'Quotes', icon: EyeIcon, color: '#e9683f', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'tasks', label: 'Tasks', icon: EyeIcon, color: '#d85a9a', actions: ['view', 'create', 'edit', 'delete'] },
   { key: 'documents', label: 'Documents', icon: EyeIcon, color: '#6b7488', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'products', label: 'Products', icon: EyeIcon, color: '#e8a838', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'reports', label: 'Reports', icon: EyeIcon, color: '#5b9eff', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'activities', label: 'Activities', icon: EyeIcon, color: '#a178e8', actions: ['view', 'create', 'edit', 'delete'] },
+  { key: 'automations', label: 'Automations', icon: EyeIcon, color: '#48b8c5', actions: ['view', 'create', 'edit', 'delete'] },
 ];
 
 const MISC_PERMS: { key: string; label: string; description: string }[] = [
@@ -75,8 +78,13 @@ const MISC_PERMS: { key: string; label: string; description: string }[] = [
   { key: 'manage_users', label: 'Manage users', description: 'Create, edit, and delete users' },
   { key: 'manage_roles', label: 'Manage roles', description: 'Create, edit, and delete roles' },
   { key: 'export_data', label: 'Export data', description: 'Export CRM data to CSV' },
+  { key: 'import_data', label: 'Import data', description: 'Import leads and customers from CSV' },
   { key: 'view_audit_logs', label: 'View audit logs', description: 'View system audit logs' },
   { key: 'manage_settings', label: 'Manage settings', description: 'Manage system settings' },
+  { key: 'manage_automations', label: 'Manage automations', description: 'Create and edit automation rules' },
+  { key: 'view_reports', label: 'View reports', description: 'View analytics and reports' },
+  { key: 'manage_calendar', label: 'Manage calendar', description: 'Create and edit calendar events' },
+  { key: 'manage_targets', label: 'Manage targets', description: 'Set and track sales targets' },
 ];
 
 const ACTION_META: Record<CrudAction, { label: string; icon: typeof EyeIcon; color: string }> = {
@@ -269,102 +277,118 @@ export function RoleManagement() {
             <Box px="20px" py="16px">
               {/* CRUD permission matrix */}
               <Box mb="20px" overflowX="auto">
-                <Box minW="480px">
+                <Box minW="520px" display="grid" gap="0">
                   {/* Header row */}
-                  <Grid templateColumns="180px repeat(4, 1fr) 36px" gap="0" borderBottom="2px solid" borderColor="app.border" pb="8px" mb="4px">
+                  <Box display="grid" gridTemplateColumns="180px repeat(4, 1fr) 44px" gap="0" borderBottom="2px solid" borderColor="app.border" pb="8px" mb="4px">
                     <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">RESOURCE</Text>
                     {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((a) => (
                       <Text key={a} fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em" textAlign="center">{ACTION_META[a].label.toUpperCase()}</Text>
                     ))}
                     <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em" textAlign="center">ALL</Text>
-                  </Grid>
+                  </Box>
                   {/* Resource rows */}
-                  <Stack spacing="0">
-                    {RESOURCES.map((resource, idx) => {
-                      const allOn = isResourceFullyEnabled(resource, selectedRole.permissions);
-                      return (
-                        <Flex
-                          key={resource.key}
-                          align="center"
-                          minH="48px"
-                          py="10px"
-                          borderBottom={idx < RESOURCES.length - 1 ? '1px solid' : 'none'}
-                          borderColor="app.border"
-                          _hover={{ bg: 'app.surfaceAlt' }}
-                          transition="background .12s ease">
-                          <Box w="180px" pr="10px" flexShrink={0}>
-                            <Flex align="center" gap="8px">
-                              <Box w="8px" h="8px" borderRadius="full" bg={resource.color} flexShrink={0} />
-                              <Text fontSize="12px" fontWeight="600" color="app.text">{resource.label}</Text>
-                            </Flex>
-                          </Box>
-                          {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((action) => {
-                            const key = permKey(resource.key, action);
-                            const enabled = !!selectedRole.permissions[key];
-                            const meta = ACTION_META[action];
-                            return (
-                              <Flex key={action} justify="center" align="center">
-                                <Box
-                                  as="button"
-                                  w="28px" h="28px" borderRadius="8px"
-                                  bg={enabled ? `${meta.color}1a` : 'transparent'}
-                                  border="1px solid"
-                                  borderColor={enabled ? meta.color : 'app.border'}
-                                  display="flex" alignItems="center" justifyContent="center"
-                                  cursor="pointer"
-                                  _hover={{ bg: enabled ? `${meta.color}2a` : 'app.surfaceAlt', transform: 'scale(1.08)' }}
-                                  transition="all .15s ease"
-                                  onClick={(e) => { e.stopPropagation(); togglePerm(key); }}>
-                                  {enabled && <CheckIcon size={14} color={meta.color} strokeWidth={3} />}
-                                </Box>
-                              </Flex>
-                            );
-                          })}
-                          {/* Toggle all */}
-                          <Flex justify="center" align="center">
-                            <Switch
-                              size="sm"
-                              colorScheme="brand"
-                              isChecked={allOn}
-                              onChange={() => toggleResourceAll(resource, !allOn)}
-                            />
+                  {RESOURCES.map((resource, idx) => {
+                    const allOn = isResourceFullyEnabled(resource, selectedRole.permissions);
+                    return (
+                      <Box
+                        key={resource.key}
+                        display="grid"
+                        gridTemplateColumns="180px repeat(4, 1fr) 44px"
+                        gap="0"
+                        minH="48px"
+                        py="10px"
+                        borderBottom={idx < RESOURCES.length - 1 ? '1px solid' : 'none'}
+                        borderColor="app.border"
+                        _hover={{ bg: 'app.surfaceAlt' }}
+                        transition="background .12s ease"
+                        alignItems="center">
+                        <Box pr="10px" flexShrink={0}>
+                          <Flex align="center" gap="8px">
+                            <Box w="8px" h="8px" borderRadius="full" bg={resource.color} flexShrink={0} />
+                            <Text fontSize="12px" fontWeight="600" color="app.text">{resource.label}</Text>
                           </Flex>
+                        </Box>
+                        {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((action) => {
+                          const key = permKey(resource.key, action);
+                          const enabled = !!selectedRole.permissions[key];
+                          const meta = ACTION_META[action];
+                          return (
+                            <Flex key={action} justify="center" align="center">
+                              <Box
+                                as="button"
+                                w="28px" h="28px" borderRadius="8px"
+                                bg={enabled ? `${meta.color}1a` : 'transparent'}
+                                border="1px solid"
+                                borderColor={enabled ? meta.color : 'app.border'}
+                                display="flex" alignItems="center" justifyContent="center"
+                                cursor="pointer"
+                                _hover={{ bg: enabled ? `${meta.color}2a` : 'app.surfaceAlt', transform: 'scale(1.08)' }}
+                                transition="all .15s ease"
+                                onClick={(e) => { e.stopPropagation(); togglePerm(key); }}>
+                                {enabled && <CheckIcon size={14} color={meta.color} strokeWidth={3} />}
+                              </Box>
+                            </Flex>
+                          );
+                        })}
+                        {/* Toggle all */}
+                        <Flex justify="center" align="center">
+                          <Box
+                            as="button"
+                            w="28px" h="28px" borderRadius="8px"
+                            bg={allOn ? '#1c8a5c1a' : 'transparent'}
+                            border="1px solid"
+                            borderColor={allOn ? '#1c8a5c' : 'app.border'}
+                            display="flex" alignItems="center" justifyContent="center"
+                            cursor="pointer"
+                            _hover={{ bg: allOn ? '#1c8a5c2a' : 'app.surfaceAlt', transform: 'scale(1.08)' }}
+                            transition="all .15s ease"
+                            onClick={(e) => { e.stopPropagation(); toggleResourceAll(resource, !allOn); }}>
+                            {allOn && <CheckIcon size={14} color="#1c8a5c" strokeWidth={3} />}
+                          </Box>
                         </Flex>
-                      );
-                    })}
-                  </Stack>
+                      </Box>
+                    );
+                  })}
                 </Box>
               </Box>
 
               {/* Miscellaneous permissions */}
               <Box>
                 <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="12px">ADDITIONAL PERMISSIONS</Text>
-                <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap="8px">
+                <Box display="grid" gridTemplateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap="8px">
                   {MISC_PERMS.map((perm) => {
                     const enabled = !!selectedRole.permissions[perm.key];
                     return (
                       <Flex
                         key={perm.key}
                         align="center"
-                        justify="space-between"
+                        gap="10px"
                         p="12px"
-                        bg={enabled ? 'brand.50' : 'app.surfaceAlt'}
+                        bg={enabled ? '#1c8a5c1a' : 'app.surfaceAlt'}
                         borderRadius="10px"
                         cursor="pointer"
                         onClick={() => togglePerm(perm.key)}
-                        _hover={{ bg: enabled ? 'brand.100' : 'app.border' }}
+                        _hover={{ bg: enabled ? '#1c8a5c2a' : 'app.border' }}
                         transition="background .15s ease"
                         border="1px solid"
-                        borderColor={enabled ? 'brand.200' : 'transparent'}>
-                        <Box>
-                          <Text fontSize="12px" fontWeight={enabled ? '700' : '600'} color={enabled ? 'brand.700' : 'app.text'}>{perm.label}</Text>
+                        borderColor={enabled ? '#1c8a5c' : 'transparent'}>
+                        <Box
+                          w="24px" h="24px" borderRadius="6px" flexShrink={0}
+                          bg={enabled ? '#1c8a5c' : 'transparent'}
+                          border="1px solid"
+                          borderColor={enabled ? '#1c8a5c' : 'app.border'}
+                          display="flex" alignItems="center" justifyContent="center"
+                          transition="all .15s ease">
+                          {enabled && <CheckIcon size={14} color="#fff" strokeWidth={3} />}
+                        </Box>
+                        <Box flex="1">
+                          <Text fontSize="12px" fontWeight={enabled ? '700' : '600'} color={enabled ? '#1c8a5c' : 'app.text'}>{perm.label}</Text>
                           <Text fontSize="10px" color="app.faint">{perm.description}</Text>
                         </Box>
-                        <Switch isChecked={enabled} onChange={() => togglePerm(perm.key)} colorScheme="brand" size="sm" onClick={(e) => e.stopPropagation()} />
                       </Flex>
                     );
                   })}
-                </Grid>
+                </Box>
               </Box>
             </Box>
           </Card>
@@ -408,54 +432,44 @@ export function RoleManagement() {
               <Box>
                 <Text fontSize="12px" fontWeight="700" mb="10px">Permissions</Text>
                 <Box overflowX="auto">
-                  <Box minW="460px">
-                    <Grid templateColumns="160px repeat(4, 1fr) 36px" gap="0" borderBottom="2px solid" borderColor="app.border" pb="8px" mb="4px">
+                  <Box minW="500px" display="grid" gap="0">
+                    <Box display="grid" gridTemplateColumns="160px repeat(4, 1fr) 44px" gap="0" borderBottom="2px solid" borderColor="app.border" pb="8px" mb="4px">
                       <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em">RESOURCE</Text>
                       {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((a) => (
                         <Text key={a} fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em" textAlign="center">{ACTION_META[a].label.toUpperCase()}</Text>
                       ))}
                       <Text fontSize="10px" fontWeight="700" color="app.faint" letterSpacing="0.06em" textAlign="center">ALL</Text>
-                    </Grid>
-                    <Stack spacing="0">
-                      {RESOURCES.map((resource, idx) => {
-                        const allOn = resource.actions.every((a) => permDraft[permKey(resource.key, a)]);
-                        return (
-                          <Flex key={resource.key} align="center" minH="44px" py="8px" borderBottom={idx < RESOURCES.length - 1 ? '1px solid' : 'none'} borderColor="app.border" _hover={{ bg: 'app.surfaceAlt' }} transition="background .12s ease">
-                            <Box w="160px" pr="10px" flexShrink={0}>
-                              <Flex align="center" gap="8px">
-                                <Box w="8px" h="8px" borderRadius="full" bg={resource.color} flexShrink={0} />
-                                <Text fontSize="12px" fontWeight="600" color="app.text">{resource.label}</Text>
-                              </Flex>
-                            </Box>
-                            {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((action) => {
-                              const key = permKey(resource.key, action);
-                              const enabled = !!permDraft[key];
-                              const meta = ACTION_META[action];
-                              return (
-                                <Flex key={action} justify="center" align="center">
-                                  <Box
-                                    as="button"
-                                    w="26px" h="26px" borderRadius="7px"
-                                    bg={enabled ? `${meta.color}1a` : 'transparent'}
-                                    border="1px solid"
-                                    borderColor={enabled ? meta.color : 'app.border'}
-                                    display="flex" alignItems="center" justifyContent="center"
-                                    cursor="pointer"
-                                    _hover={{ bg: enabled ? `${meta.color}2a` : 'app.surfaceAlt', transform: 'scale(1.08)' }}
-                                    transition="all .15s ease"
-                                    onClick={() => toggleDraftPerm(key)}>
-                                    {enabled && <CheckIcon size={13} color={meta.color} strokeWidth={3} />}
-                                  </Box>
-                                </Flex>
-                              );
-                            })}
-                            <Flex justify="center" align="center">
-                              <Switch size="sm" colorScheme="brand" isChecked={allOn} onChange={() => toggleDraftResourceAll(resource, !allOn)} />
+                    </Box>
+                    {RESOURCES.map((resource, idx) => {
+                      const allOn = resource.actions.every((a) => permDraft[permKey(resource.key, a)]);
+                      return (
+                        <Box key={resource.key} display="grid" gridTemplateColumns="160px repeat(4, 1fr) 44px" gap="0" minH="44px" py="8px" borderBottom={idx < RESOURCES.length - 1 ? '1px solid' : 'none'} borderColor="app.border" _hover={{ bg: 'app.surfaceAlt' }} transition="background .12s ease" alignItems="center">
+                          <Box pr="10px" flexShrink={0}>
+                            <Flex align="center" gap="8px">
+                              <Box w="8px" h="8px" borderRadius="full" bg={resource.color} flexShrink={0} />
+                              <Text fontSize="12px" fontWeight="600" color="app.text">{resource.label}</Text>
                             </Flex>
+                          </Box>
+                          {(['view', 'create', 'edit', 'delete'] as CrudAction[]).map((action) => {
+                            const key = permKey(resource.key, action);
+                            const enabled = !!permDraft[key];
+                            const meta = ACTION_META[action];
+                            return (
+                              <Flex key={action} justify="center" align="center">
+                                <Box as="button" w="26px" h="26px" borderRadius="7px" bg={enabled ? `${meta.color}1a` : 'transparent'} border="1px solid" borderColor={enabled ? meta.color : 'app.border'} display="flex" alignItems="center" justifyContent="center" cursor="pointer" _hover={{ bg: enabled ? `${meta.color}2a` : 'app.surfaceAlt', transform: 'scale(1.08)' }} transition="all .15s ease" onClick={() => toggleDraftPerm(key)}>
+                                  {enabled && <CheckIcon size={13} color={meta.color} strokeWidth={3} />}
+                                </Box>
+                              </Flex>
+                            );
+                          })}
+                          <Flex justify="center" align="center">
+                            <Box as="button" w="26px" h="26px" borderRadius="7px" bg={allOn ? '#1c8a5c1a' : 'transparent'} border="1px solid" borderColor={allOn ? '#1c8a5c' : 'app.border'} display="flex" alignItems="center" justifyContent="center" cursor="pointer" _hover={{ bg: allOn ? '#1c8a5c2a' : 'app.surfaceAlt', transform: 'scale(1.08)' }} transition="all .15s ease" onClick={() => toggleDraftResourceAll(resource, !allOn)}>
+                              {allOn && <CheckIcon size={13} color="#1c8a5c" strokeWidth={3} />}
+                            </Box>
                           </Flex>
-                        );
-                      })}
-                    </Stack>
+                        </Box>
+                      );
+                    })}
                   </Box>
                 </Box>
               </Box>
@@ -463,17 +477,19 @@ export function RoleManagement() {
               {/* Misc perms in modal */}
               <Box>
                 <Text fontSize="11px" fontWeight="700" color="app.faint" letterSpacing="0.08em" mb="10px">ADDITIONAL PERMISSIONS</Text>
-                <Grid templateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap="8px">
+                <Box display="grid" gridTemplateColumns={{ base: '1fr', md: 'repeat(2, 1fr)' }} gap="8px">
                   {MISC_PERMS.map((perm) => {
                     const enabled = !!permDraft[perm.key];
                     return (
-                      <Flex key={perm.key} align="center" justify="space-between" p="10px" bg={enabled ? 'brand.50' : 'app.surfaceAlt'} borderRadius="9px" cursor="pointer" onClick={() => toggleDraftPerm(perm.key)} _hover={{ bg: enabled ? 'brand.100' : 'app.border' }} transition="background .15s ease" border="1px solid" borderColor={enabled ? 'brand.200' : 'transparent'}>
-                        <Text fontSize="12px" fontWeight={enabled ? '700' : '600'} color={enabled ? 'brand.700' : 'app.text'}>{perm.label}</Text>
-                        <Switch isChecked={enabled} onChange={() => toggleDraftPerm(perm.key)} colorScheme="brand" size="sm" onClick={(e) => e.stopPropagation()} />
+                      <Flex key={perm.key} align="center" gap="10px" p="10px" bg={enabled ? '#1c8a5c1a' : 'app.surfaceAlt'} borderRadius="9px" cursor="pointer" onClick={() => toggleDraftPerm(perm.key)} _hover={{ bg: enabled ? '#1c8a5c2a' : 'app.border' }} transition="background .15s ease" border="1px solid" borderColor={enabled ? '#1c8a5c' : 'transparent'}>
+                        <Box w="22px" h="22px" borderRadius="6px" flexShrink={0} bg={enabled ? '#1c8a5c' : 'transparent'} border="1px solid" borderColor={enabled ? '#1c8a5c' : 'app.border'} display="flex" alignItems="center" justifyContent="center" transition="all .15s ease">
+                          {enabled && <CheckIcon size={13} color="#fff" strokeWidth={3} />}
+                        </Box>
+                        <Text fontSize="12px" fontWeight={enabled ? '700' : '600'} color={enabled ? '#1c8a5c' : 'app.text'}>{perm.label}</Text>
                       </Flex>
                     );
                   })}
-                </Grid>
+                </Box>
               </Box>
             </Stack>
           </ModalBody>

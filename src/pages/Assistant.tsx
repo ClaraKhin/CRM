@@ -151,105 +151,28 @@ export function Assistant() {
     try {
       if (!session?.user) return { text: 'Not authenticated', status: 'error' };
 
-      let resultText = '';
-      let outputData: Record<string, unknown> = {};
+      const { data, error } = await supabase.functions.invoke('ai-assistant', {
+        body: { query: input.query ?? action, userId: session.user.id },
+      });
 
-      if (action === 'summarize_meetings') {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase.from('events').select('*').eq('user_id', session.user.id).gte('event_date', today).order('event_date', { ascending: true }).limit(10);
-        const events = data ?? [];
-        if (events.length === 0) {
-          resultText = 'You have no upcoming meetings scheduled. Want me to create one?';
-        } else {
-          resultText = `You have ${events.length} upcoming meeting${events.length > 1 ? 's' : ''}:\n` + events.map((e: any) => `• ${e.title} — ${e.event_date} at ${e.time}${e.sync ? ` (${e.sync} sync)` : ''}`).join('\n');
-        }
-        outputData = { count: events.length };
-      } else if (action === 'deals_at_risk') {
-        const { data } = await supabase.from('deals').select('*').eq('user_id', session.user.id).neq('stage', 'Won').neq('stage', 'Lost').order('close_date', { ascending: true });
-        const deals = (data ?? []).filter((d: any) => {
-          if (!d.close_date) return false;
-          const days = (new Date(d.close_date).getTime() - Date.now()) / 86400000;
-          return days <= 7 && days >= -30;
-        });
-        if (deals.length === 0) {
-          resultText = 'No deals are currently at risk. Your pipeline looks healthy!';
-        } else {
-          resultText = `${deals.length} deal${deals.length > 1 ? 's are' : ' is'} at risk:\n` + deals.map((d: any) => `• ${d.title} — $${d.value.toLocaleString()} (${d.stage}, ${d.probability}% — close date: ${d.close_date})`).join('\n');
-        }
-        outputData = { count: deals.length };
-      } else if (action === 'generate_forecast') {
-        const { data } = await supabase.from('deals').select('*').eq('user_id', session.user.id).neq('stage', 'Lost');
-        const deals = data ?? [];
-        const won = deals.filter((d: any) => d.stage === 'Won').reduce((s: number, d: any) => s + d.value, 0);
-        const weighted = deals.reduce((s: number, d: any) => s + d.value * d.probability / 100, 0);
-        const open = deals.filter((d: any) => d.stage !== 'Won').reduce((s: number, d: any) => s + d.value, 0);
-        resultText = `Q2 Forecast:\n• Won revenue: $${won.toLocaleString()}\n• Weighted pipeline: $${Math.round(weighted).toLocaleString()}\n• Open pipeline: $${open.toLocaleString()}\n• Total projected: $${Math.round(won + weighted).toLocaleString()}\n• Confidence: ${deals.length > 0 ? Math.round(deals.reduce((s: number, d: any) => s + d.probability, 0) / deals.length) : 0}%`;
-        outputData = { won, weighted, open };
-      } else if (action === 'overdue_invoices') {
-        const today = new Date().toISOString().split('T')[0];
-        const { data } = await supabase.from('invoices').select('*').eq('user_id', session.user.id).neq('status', 'Paid').lt('due_date', today);
-        const invoices = data ?? [];
-        if (invoices.length === 0) {
-          resultText = 'No overdue invoices. All payments are up to date!';
-        } else {
-          resultText = `${invoices.length} overdue invoice${invoices.length > 1 ? 's' : ''}:\n` + invoices.map((i: any) => `• ${i.number} — $${i.amount.toLocaleString()} (due: ${i.due_date})`).join('\n');
-        }
-        outputData = { count: invoices.length };
-      } else if (action === 'search_customers') {
-        const { data } = await supabase.from('customers').select('*, people(*)').eq('user_id', session.user.id).limit(10);
-        const customers = data ?? [];
-        if (customers.length === 0) {
-          resultText = 'No customers found in your CRM yet.';
-        } else {
-          resultText = `Found ${customers.length} customer${customers.length > 1 ? 's' : ''}:\n` + customers.map((c: any) => `• ${c.people?.company ?? 'Unknown'} — ${c.status} ($${(c.lifetime_value ?? 0).toLocaleString()} LTV)`).join('\n');
-        }
-        outputData = { count: customers.length };
-      } else if (action === 'summarize_email') {
-        const { data } = await supabase.from('activities').select('*').eq('user_id', session.user.id).eq('type', 'Email').order('created_at', { ascending: false }).limit(3);
-        const emails = data ?? [];
-        if (emails.length === 0) {
-          resultText = 'No recent email conversations found. Connect Gmail via MCP to sync your inbox.';
-        } else {
-          resultText = `Latest ${emails.length} email${emails.length > 1 ? 's' : ''}:\n` + emails.map((e: any) => `• ${e.subject} — ${e.description ?? 'No preview'} (${new Date(e.created_at).toLocaleDateString()})`).join('\n');
-        }
-        outputData = { count: emails.length };
-      } else if (action === 'schedule_meeting') {
-        resultText = 'I can help you schedule a meeting. What date, time, and title would you like? You can also create events directly from the Calendar page.';
-        outputData = {};
-      } else if (action === 'draft_email') {
-        resultText = 'I\'ll draft an email for you. Who is the recipient and what is the topic? I can use your last activity notes to personalize it.';
-        outputData = {};
-      } else if (action === 'generate_quote') {
-        const { data: people } = await supabase.from('people').select('*').eq('user_id', session.user.id).limit(5);
-        const count = people?.length ?? 0;
-        resultText = `I can generate a quote for you. You have ${count} contacts available. Navigate to the Quotes page and click "New quote" to create one, or tell me which customer and amount.`;
-        outputData = { contacts: count };
-      } else {
-        resultText = 'I can search customers, summarize meetings, check overdue invoices, forecast revenue, and analyze your pipeline. Try one of the suggestions below!';
+      const latency = Date.now() - start;
+      if (error || data?.error) {
+        await logToolExecution('AI Assistant', action, input, null, 'error', latency);
+        return { text: data?.answer ?? `Something went wrong: ${error?.message ?? 'Unknown error'}`, status: 'error' };
       }
 
-      const latency = Date.now() - start;
-      await logToolExecution(tool, action, input, outputData, 'success', latency);
-      return { text: resultText, status: 'success' };
+      const toolsUsed = (data.toolsUsed ?? ['CRM Database']) as string[];
+      await logToolExecution(toolsUsed.join(', '), action, input, { answer: data.answer }, 'success', latency);
+      return { text: data.answer, status: 'success' };
     } catch (err: any) {
       const latency = Date.now() - start;
-      await logToolExecution(tool, action, input, null, 'error', latency);
+      await logToolExecution('AI Assistant', action, input, null, 'error', latency);
       return { text: `Something went wrong: ${err.message}`, status: 'error' };
     }
   };
 
   const resolveAction = (text: string): { tool: string; action: string } => {
-    const lower = text.toLowerCase();
-    if (lower.includes('meeting') && (lower.includes('today') || lower.includes('summar'))) return { tool: 'Google Calendar', action: 'summarize_meetings' };
-    if (lower.includes('at risk') || (lower.includes('deal') && lower.includes('risk'))) return { tool: 'CRM Database', action: 'deals_at_risk' };
-    if (lower.includes('forecast') || lower.includes('q2') || lower.includes('project')) return { tool: 'CRM Database', action: 'generate_forecast' };
-    if (lower.includes('overdue') || lower.includes('invoice')) return { tool: 'CRM Database', action: 'overdue_invoices' };
-    if (lower.includes('search') && lower.includes('customer')) return { tool: 'CRM Database', action: 'search_customers' };
-    if (lower.includes('email') && (lower.includes('summar') || lower.includes('latest'))) return { tool: 'Gmail', action: 'summarize_email' };
-    if (lower.includes('schedule') || lower.includes('meeting') && lower.includes('create')) return { tool: 'Google Calendar', action: 'schedule_meeting' };
-    if (lower.includes('draft') && lower.includes('email')) return { tool: 'Gmail', action: 'draft_email' };
-    if (lower.includes('quote') || lower.includes('quotation')) return { tool: 'CRM Database', action: 'generate_quote' };
-    return { tool: 'CRM Database', action: 'general' };
+    return { tool: 'AI Assistant', action: text.toLowerCase().replace(/\s+/g, '_').slice(0, 50) };
   };
 
   const send = async (text: string) => {
@@ -262,20 +185,11 @@ export function Assistant() {
     setThinking(true);
 
     const { tool, action } = resolveAction(value);
-    const server = servers.find((s) => s.name === tool || s.category === tool);
-    const serverConnected = server?.connected ?? (tool === 'CRM Database');
-
-    if (!serverConnected) {
-      setThinking(false);
-      const reply = `${tool} is not connected. Toggle it on in the MCP connections panel to enable this capability.`;
-      const aiMsg = await persistMessage('ai', reply, tool, 'error');
-      if (aiMsg) setMessages((prev) => [...prev, aiMsg]);
-      return;
-    }
 
     const result = await executeTool(tool, action, { query: value });
     setThinking(false);
-    const aiMsg = await persistMessage('ai', result.text, tool, result.status);
+    const toolLabel = result.status === 'success' ? 'AI Assistant' : tool;
+    const aiMsg = await persistMessage('ai', result.text, toolLabel, result.status);
     if (aiMsg) setMessages((prev) => [...prev, aiMsg]);
   };
 

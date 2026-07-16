@@ -74,6 +74,8 @@ const ENTITY_COLORS: Record<string, string> = {
   deal: '#8374d9', customer: '#2d9c79', lead: '#3355c9', quote: '#e9683f', invoice: '#b5760f', product: '#d85a9a', general: '#6b7488',
 };
 
+function isStoredUrl(url: string) { return url.startsWith('http'); }
+
 function isImage(doc: Doc) {
   return doc.file_type.includes('image') || /\.(png|jpe?g|gif|webp|svg)$/i.test(doc.name);
 }
@@ -142,6 +144,15 @@ export function Documents() {
 
   const formatSize = (bytes: number) => bytes < 1024 ? `${bytes}B` : bytes < 1048576 ? `${(bytes / 1024).toFixed(0)}KB` : `${(bytes / 1048576).toFixed(1)}MB`;
 
+  const readFileAsDataUrl = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const openUploadModal = () => {
     setUploadForm({ name: '', entity_type: 'general' });
     setSelectedFile(null);
@@ -153,9 +164,19 @@ export function Documents() {
     if (!selectedFile) { toast({ title: 'Select a file to upload', status: 'warning', duration: 2500, position: 'top-right' }); return; }
     if (selectedFile.size > 25 * 1024 * 1024) { toast({ title: 'File too large (max 25MB)', status: 'error', duration: 3000, position: 'top-right' }); return; }
     setUploading(true);
-    const filePath = `${session.user.id}/${uploadForm.entity_type}/${Date.now()}-${selectedFile.name}`;
-    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, selectedFile);
-    const fileUrl = upErr ? `local:${selectedFile.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+    let fileUrl = '';
+    try {
+      const filePath = `${session.user.id}/${uploadForm.entity_type}/${Date.now()}-${selectedFile.name}`;
+      const { error: upErr } = await supabase.storage.from('documents').upload(filePath, selectedFile);
+      if (upErr) {
+        // Fallback: store as data URL so the file can always be previewed
+        fileUrl = await readFileAsDataUrl(selectedFile);
+      } else {
+        fileUrl = supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+      }
+    } catch {
+      fileUrl = await readFileAsDataUrl(selectedFile);
+    }
     const { data: docData, error: insErr } = await supabase.from('documents').insert({
       user_id: session.user.id, entity_type: uploadForm.entity_type, entity_id: null,
       name: uploadForm.name || selectedFile.name,
@@ -185,9 +206,18 @@ export function Documents() {
     if (editFile.size > 25 * 1024 * 1024) { toast({ title: 'File too large (max 25MB)', status: 'error', duration: 3000, position: 'top-right' }); return; }
     setUploading(true);
     const oldDoc = docs.find((d) => d.id === editId);
-    const filePath = `${session.user.id}/${oldDoc?.entity_type ?? 'general'}/${Date.now()}-${editFile.name}`;
-    const { error: upErr } = await supabase.storage.from('documents').upload(filePath, editFile);
-    const fileUrl = upErr ? `local:${editFile.name}` : supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+    let fileUrl = '';
+    try {
+      const filePath = `${session.user.id}/${oldDoc?.entity_type ?? 'general'}/${Date.now()}-${editFile.name}`;
+      const { error: upErr } = await supabase.storage.from('documents').upload(filePath, editFile);
+      if (upErr) {
+        fileUrl = await readFileAsDataUrl(editFile);
+      } else {
+        fileUrl = supabase.storage.from('documents').getPublicUrl(filePath).data.publicUrl;
+      }
+    } catch {
+      fileUrl = await readFileAsDataUrl(editFile);
+    }
     const { data, error } = await supabase.from('documents').update({
       name: editFile.name,
       file_url: fileUrl,
@@ -428,23 +458,25 @@ export function Documents() {
                 <ModalBody py="18px" overflowY="auto">
                   {/* File preview area */}
                   <Box borderRadius="12px" overflow="hidden" bg="app.surfaceAlt" border="1px solid" borderColor="app.border" mb="16px" minH="300px" display="flex" alignItems="center" justifyContent="center">
-                    {viewDoc.file_url.startsWith('local:') ? (
-                      <Stack align="center" spacing="8px" py="40px">
-                        <FileIcon size={40} color="app.faint" />
-                        <Text fontSize="13px" color="app.subtle">Preview not available</Text>
-                        <Text fontSize="11px" color="app.faint">File stored locally</Text>
-                      </Stack>
-                    ) : img ? (
-                      <Box w="full" display="flex" justifyContent="center" p="12px">
-                        <img src={viewDoc.file_url} alt={viewDoc.name} style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '8px', objectFit: 'contain' }} />
-                      </Box>
-                    ) : pdf ? (
-                      <iframe src={viewDoc.file_url} style={{ width: '100%', height: '500px', border: 'none' }} title={viewDoc.name} />
+                    {viewDoc.file_url.startsWith('data:') || isStoredUrl(viewDoc.file_url) ? (
+                      isImage(viewDoc) ? (
+                        <Box w="full" display="flex" justifyContent="center" p="12px">
+                          <img src={viewDoc.file_url} alt={viewDoc.name} style={{ maxWidth: '100%', maxHeight: '500px', borderRadius: '8px', objectFit: 'contain' }} />
+                        </Box>
+                      ) : isPdf(viewDoc) ? (
+                        <iframe src={viewDoc.file_url} style={{ width: '100%', height: '500px', border: 'none' }} title={viewDoc.name} />
+                      ) : (
+                        <Stack align="center" spacing="8px" py="40px">
+                          <FileIcon size={40} color="app.faint" />
+                          <Text fontSize="13px" color="app.subtle">No preview available for this file type</Text>
+                          <Button as="a" href={viewDoc.file_url} target="_blank" size="sm" bg="navy.600" color="white" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Download</Button>
+                        </Stack>
+                      )
                     ) : (
                       <Stack align="center" spacing="8px" py="40px">
                         <FileIcon size={40} color="app.faint" />
-                        <Text fontSize="13px" color="app.subtle">No preview available</Text>
-                        <Button as="a" href={viewDoc.file_url} target="_blank" size="sm" bg="navy.600" color="white" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Download</Button>
+                        <Text fontSize="13px" color="app.subtle">Preview not available</Text>
+                        <Text fontSize="11px" color="app.faint">File URL not recognized</Text>
                       </Stack>
                     )}
                   </Box>
@@ -476,7 +508,7 @@ export function Documents() {
                   </Grid>
                 </ModalBody>
                 <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
-                  {!viewDoc.file_url.startsWith('local:') && <Button as="a" href={viewDoc.file_url} target="_blank" mr="auto" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Open in new tab</Button>}
+                  {(isStoredUrl(viewDoc.file_url) || viewDoc.file_url.startsWith('data:')) && <Button as="a" href={viewDoc.file_url} target="_blank" download={viewDoc.name} mr="auto" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<UploadIcon size={13} />}>Download</Button>}
                   {canDelete(viewDoc) && <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" leftIcon={<EditIcon size={13} />} onClick={() => { viewModal.onClose(); openEditModal(viewDoc); }}>Replace file</Button>}
                   <Button variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={viewModal.onClose}>Close</Button>
                 </ModalFooter>
