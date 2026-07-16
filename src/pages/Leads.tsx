@@ -182,6 +182,10 @@ export function Leads() {
     supabase.from('people').select('*').eq('user_id', session.user.id).then(({ data }) => setPeople((data ?? []) as Person[]));
   }, [session]);
 
+  useEffect(() => {
+    fetchPeople();
+  }, [fetchPeople]);
+
   const { owners: profileOwners } = useProfileOwners();
 
   const personById = (id: string | null) => people.find((p) => p.id === id) ?? null;
