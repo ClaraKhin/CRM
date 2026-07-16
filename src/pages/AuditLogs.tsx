@@ -215,7 +215,7 @@ export function AuditLogs() {
                           </Box>
                         </Flex>
                       </Td>
-                      <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }} fontSize="12px" color="app.subtle" maxW="220px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={log.entity_id ?? undefined}>{log.entity_type ?? '—'}{log.entity_id ? ` · ${log.entity_id}` : ''}</Td>
+                      <Td borderColor="app.border" display={{ base: 'none', md: 'table-cell' }} fontSize="12px" color="app.subtle" maxW="220px" whiteSpace="nowrap" overflow="hidden" textOverflow="ellipsis" title={log.entity_id ?? log.user_id ?? undefined}>{log.entity_id ? ` ${log.entity_id}` : log.user_id ? `  ${log.user_id}` : ''}</Td>
                       <Td borderColor="app.border" display={{ base: 'none', lg: 'table-cell' }}>
                         <Flex align="center" gap="6px">
                           <Icon as={GlobeIcon} boxSize="11px" color="app.faint" />
