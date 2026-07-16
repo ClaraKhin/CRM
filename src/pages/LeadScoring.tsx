@@ -89,7 +89,8 @@ export function LeadScoring() {
     ruleModal.onOpen();
   };
 
-  const openEdit = (r: ScoreRule) => {
+  const openEdit = (r: ScoreRule, e?: React.MouseEvent) => {
+    if (e && (e.target as HTMLElement).closest('[data-action="true"]')) return;
     setEditingId(r.id);
     setForm({ name: r.name, condition_field: r.condition_field, condition_operator: r.condition_operator, condition_value: r.condition_value, points: r.points });
     ruleModal.onOpen();
@@ -206,14 +207,14 @@ export function LeadScoring() {
                 </Thead>
                 <Tbody>
                   {rules.map((r) => (
-                    <Tr key={r.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={() => openEdit(r)}>
+                    <Tr key={r.id} _hover={{ bg: 'app.surfaceAlt' }} cursor="pointer" onClick={(e) => openEdit(r, e)}>
                       <Td borderColor="app.border" fontSize="12px" fontWeight="700">{r.name}</Td>
                       <Td borderColor="app.border" fontSize="11px" color="app.subtle">
                         {FIELD_LABELS[r.condition_field] ?? r.condition_field} {OPERATOR_LABELS[r.condition_operator] ?? r.condition_operator} "{r.condition_value}"
                       </Td>
                       <Td borderColor="app.border" isNumeric fontSize="12px" fontWeight="700">+{r.points}</Td>
-                      <Td borderColor="app.border"><Switch isChecked={r.enabled} onChange={(e) => { e.stopPropagation(); toggleRule(r); }} colorScheme="orange" size="sm" /></Td>
-                      <Td borderColor="app.border" onClick={(e) => e.stopPropagation()}>
+                      <Td borderColor="app.border" data-action="true"><Switch isChecked={r.enabled} onChange={(e) => { e.stopPropagation(); toggleRule(r); }} colorScheme="orange" size="sm" /></Td>
+                      <Td borderColor="app.border" data-action="true" onClick={(e) => e.stopPropagation()}>
                         <Button size="xs" variant="ghost" color="#c23c3c" onClick={() => { setDeleteId(r.id); confirmDel.onOpen(); }}><Trash2Icon size={13} /></Button>
                       </Td>
                     </Tr>
