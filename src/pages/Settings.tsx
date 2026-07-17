@@ -40,7 +40,6 @@ import {
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
-import QRCode from 'qrcode';
 import { supabase, ROLE_LABELS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -209,13 +208,8 @@ export function Settings() {
       }
       setTwoFactorSecret(data.secret);
       setTwoFactorSetupToken(data.setupToken);
-      // Generate QR code client-side from the otpauth URI
-      try {
-        const qrDataUrl = await QRCode.toDataURL(data.otpauthUri, { width: 200, margin: 1 });
-        setTwoFactorQrCode(qrDataUrl);
-      } catch {
-        setTwoFactorQrCode('');
-      }
+      // Generate QR code via Google Charts API (no npm dependency needed)
+      setTwoFactorQrCode(`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(data.otpauthUri)}`);
       setTwoFactorSetupOpen(true);
     } catch (err: any) {
       toast({ title: 'Setup failed', description: err?.message ?? 'Network error', status: 'error', duration: 3000, position: 'top-right' });
