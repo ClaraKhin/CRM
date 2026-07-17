@@ -367,5 +367,6 @@ export function Calendar() {
 
       <ConfirmDialog isOpen={confirmDel.isOpen} onClose={confirmDel.onClose} title="Delete event" message="Are you sure you want to delete this event?" confirmLabel="Delete" danger onConfirm={handleDelete} />
     </>
+    
   );
 }
