@@ -40,6 +40,7 @@ import {
 import { PageHeader } from '../components/ui/PageHeader';
 import { Card, CardHeader } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
+import QRCode from 'qrcode';
 import { supabase, ROLE_LABELS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 
@@ -206,12 +207,18 @@ export function Settings() {
         setTwoFactorSetupLoading(false);
         return;
       }
-      setTwoFactorQrCode(data.qrCode);
       setTwoFactorSecret(data.secret);
       setTwoFactorSetupToken(data.setupToken);
+      // Generate QR code client-side from the otpauth URI
+      try {
+        const qrDataUrl = await QRCode.toDataURL(data.otpauthUri, { width: 200, margin: 1 });
+        setTwoFactorQrCode(qrDataUrl);
+      } catch {
+        setTwoFactorQrCode('');
+      }
       setTwoFactorSetupOpen(true);
-    } catch {
-      toast({ title: 'Setup failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+    } catch (err: any) {
+      toast({ title: 'Setup failed', description: err?.message ?? 'Network error', status: 'error', duration: 3000, position: 'top-right' });
     }
     setTwoFactorSetupLoading(false);
   };
@@ -410,7 +417,7 @@ export function Settings() {
                 </FormControl>
                 <HStack spacing="8px">
                   <Button size="sm" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" isLoading={twoFactorVerifying} onClick={verifyTwoFactor}>Verify & enable</Button>
-                  <Button size="sm" variant="ghost" fontSize="12px" onClick={() => { setTwoFactorSetupOpen(false); setTwoFactorCode(''); setTwoFactorQrCode(''); setTwoFactorSecret(''); }}>Cancel</Button>
+                  <Button size="sm" variant="ghost" fontSize="12px" onClick={() => { setTwoFactorSetupOpen(false); setTwoFactorCode(''); setTwoFactorQrCode(''); setTwoFactorSecret(''); setTwoFactorSetupToken(''); }}>Cancel</Button>
                 </HStack>
               </Stack>
             )}
