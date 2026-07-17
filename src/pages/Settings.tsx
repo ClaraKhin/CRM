@@ -360,21 +360,49 @@ export function Settings() {
               <Text fontWeight="700" fontSize="14px">Two-Factor Authentication</Text>
             </Flex>
 
-            {!twoFactorEnabled && !twoFactorSetupOpen && (
-              <Box>
-                <Text fontSize="12px" color="app.subtle" mb="14px">Protect your account with an authenticator app like Google Authenticator or Authy.</Text>
-                <Button size="sm" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" leftIcon={<QrCodeIcon size={14} />} onClick={() => setTwoFactorSetupOpen(true)}>Set up 2FA</Button>
+            {/* Backup codes display (shown once after enabling) */}
+            {twoFactorBackupCodes && (
+              <Box mb="16px" p="18px" bg="#fff8e8" borderRadius="12px" border="1px solid" borderColor="#e8c84a">
+                <Flex align="center" gap="8px" mb="10px">
+                  <ShieldCheckIcon size={16} color="#b5760f" />
+                  <Text fontSize="13px" fontWeight="700" color="#b5760f">Save your backup codes</Text>
+                </Flex>
+                <Text fontSize="11px" color="app.subtle" mb="12px">Store these one-time codes in a safe place. Each can be used once if you lose access to your authenticator app.</Text>
+                <Box bg="white" p="12px" borderRadius="8px" border="1px solid" borderColor="app.border" mb="12px">
+                  <Grid templateColumns="repeat(2, 1fr)" gap="6px">
+                    {twoFactorBackupCodes.map((c) => (
+                      <Text key={c} fontSize="12px" fontFamily="monospace" fontWeight="600" color="app.text">{c}</Text>
+                    ))}
+                  </Grid>
+                </Box>
+                <HStack spacing="8px">
+                  <Button size="sm" bg="navy.600" color="white" borderRadius="8px" fontSize="12px" onClick={copyBackupCodes} leftIcon={backupCodesCopied ? <CheckIcon size={13} /> : undefined}>
+                    {backupCodesCopied ? 'Copied' : 'Copy codes'}
+                  </Button>
+                  <Button size="sm" variant="outline" borderColor="app.border" borderRadius="8px" fontSize="12px" onClick={closeBackupCodes}>I&apos;ve saved them</Button>
+                </HStack>
               </Box>
             )}
 
-            {!twoFactorEnabled && twoFactorSetupOpen && (
+            {!twoFactorEnabled && !twoFactorSetupOpen && !twoFactorBackupCodes && (
+              <Box>
+                <Text fontSize="12px" color="app.subtle" mb="14px">Protect your account with an authenticator app like Google Authenticator or Authy.</Text>
+                <Button size="sm" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" leftIcon={<QrCodeIcon size={14} />} onClick={startTwoFactorSetup} isLoading={twoFactorSetupLoading}>Set up 2FA</Button>
+              </Box>
+            )}
+
+            {!twoFactorEnabled && twoFactorSetupOpen && !twoFactorBackupCodes && (
               <Stack spacing="16px" maxW="440px">
                 <Box p="20px" bg="app.surfaceAlt" borderRadius="12px" textAlign="center">
-                  <Flex w="160px" h="160px" mx="auto" bg="white" borderRadius="10px" align="center" justify="center" border="1px solid" borderColor="app.border" position="relative">
-                    <QrCodeIcon size={120} color="app.text" />
+                  <Flex w="160px" h="160px" mx="auto" bg="white" borderRadius="10px" align="center" justify="center" border="1px solid" borderColor="app.border" position="relative" overflow="hidden">
+                    {twoFactorQrCode ? (
+                      <img src={twoFactorQrCode} alt="2FA QR code" style={{ width: '160px', height: '160px' }} />
+                    ) : (
+                      <Spinner color="brand.500" />
+                    )}
                   </Flex>
                   <Text fontSize="12px" color="app.subtle" mt="12px">Scan this QR code with your authenticator app</Text>
-                  <Text fontSize="10px" color="app.faint" mt="6px" fontFamily="monospace">Secret: JBSWY3DPEHPK3PXP</Text>
+                  <Text fontSize="10px" color="app.faint" mt="6px" fontFamily="monospace">Secret: {twoFactorSecret}</Text>
                 </Box>
                 <FormControl>
                   <FormLabel fontSize="12px">Enter 6-digit verification code</FormLabel>
@@ -382,19 +410,19 @@ export function Settings() {
                 </FormControl>
                 <HStack spacing="8px">
                   <Button size="sm" bg="navy.600" color="white" _hover={{ bg: 'navy.500' }} borderRadius="9px" fontSize="12px" isLoading={twoFactorVerifying} onClick={verifyTwoFactor}>Verify & enable</Button>
-                  <Button size="sm" variant="ghost" fontSize="12px" onClick={() => { setTwoFactorSetupOpen(false); setTwoFactorCode(''); }}>Cancel</Button>
+                  <Button size="sm" variant="ghost" fontSize="12px" onClick={() => { setTwoFactorSetupOpen(false); setTwoFactorCode(''); setTwoFactorQrCode(''); setTwoFactorSecret(''); }}>Cancel</Button>
                 </HStack>
               </Stack>
             )}
 
-            {twoFactorEnabled && (
+            {twoFactorEnabled && !twoFactorBackupCodes && (
               <Flex align="center" gap="10px" p="14px" bg="app.surfaceAlt" borderRadius="10px">
                 <Icon as={CheckIcon} boxSize="18px" color="#1c8a5c" />
                 <Box flex="1">
                   <Text fontSize="13px" fontWeight="600">2FA is enabled</Text>
                   <Text fontSize="11px" color="app.faint">Your account is protected with an authenticator app</Text>
                 </Box>
-                <Button size="sm" variant="outline" borderColor="app.border" color="#c23c3c" borderRadius="9px" fontSize="12px" onClick={disableTwoFactor}>Disable</Button>
+                <Button size="sm" variant="outline" borderColor="app.border" color="#c23c3c" borderRadius="9px" fontSize="12px" onClick={() => setTwoFactorDisableOpen(true)}>Disable</Button>
               </Flex>
             )}
           </Card>
