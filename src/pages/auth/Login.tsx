@@ -8,14 +8,14 @@ import {
   Link as ChakraLink,
   Text,
   useToast } from '@chakra-ui/react';
-import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon } from 'lucide-react';
+import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon, KeyIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { AuthField, AuthFormBox } from '../../components/auth/AuthField';
 import { useAuth } from '../../context/AuthContext';
 
 export function Login() {
-  const { signIn } = useAuth();
+  const { signIn, complete2FALogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -26,9 +26,14 @@ export function Login() {
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [submitting, setSubmitting] = useState(false);
+
+  // 2FA step state
   const [tfaOpen, setTfaOpen] = useState(false);
   const [tfaCode, setTfaCode] = useState('');
   const [tfaError, setTfaError] = useState('');
+  const [useBackupCode, setUseBackupCode] = useState(false);
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingPassword, setPendingPassword] = useState('');
 
   const validate = () => {
     const e: { email?: string; password?: string } = {};
@@ -44,28 +49,53 @@ export function Login() {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    const { error } = await signIn(email.trim(), password, remember);
+    const result = await signIn(email.trim(), password, remember);
     setSubmitting(false);
-    if (error) {
-      toast({ title: 'Sign in failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+    if (result.error) {
+      toast({ title: 'Sign in failed', description: result.error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
-    setTfaOpen(true);
+    if (result.twoFactorRequired) {
+      setPendingEmail(result.pendingEmail ?? email);
+      setPendingPassword(result.pendingPassword ?? password);
+      setTfaOpen(true);
+      return;
+    }
+    // No 2FA — logged in
+    toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
+    navigate(from, { replace: true });
   };
 
-  const verifyTfa = (e: React.FormEvent) => {
+  const verifyTfa = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (tfaCode.replace(/\s/g, '').length !== 6) {
-      setTfaError('Enter the 6-digit code from your authenticator app.');
-      return;
+    const code = tfaCode.replace(/\s/g, '');
+    if (useBackupCode) {
+      if (code.length < 8) {
+        setTfaError('Enter a valid backup code (e.g. ABCD-1234-EF56).');
+        return;
+      }
+    } else {
+      if (code.length !== 6) {
+        setTfaError('Enter the 6-digit code from your authenticator app.');
+        return;
+      }
     }
     setTfaError('');
     setSubmitting(true);
-    setTimeout(() => {
-      setSubmitting(false);
-      toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
-      navigate(from, { replace: true });
-    }, 600);
+    const result = await complete2FALogin(
+      pendingEmail,
+      pendingPassword,
+      tfaCode,
+      useBackupCode,
+      remember
+    );
+    setSubmitting(false);
+    if (result.error) {
+      setTfaError(result.error.message);
+      return;
+    }
+    toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
+    navigate(from, { replace: true });
   };
 
   const fillDemo = () => {
@@ -83,13 +113,13 @@ export function Login() {
             </Flex>
           </Box>
           <AuthField
-            label="Authentication code"
+            label={useBackupCode ? "Backup recovery code" : "Authentication code"}
             name="tfa"
             type="text"
             value={tfaCode}
             onChange={(e) => setTfaCode(e.target.value)}
-            placeholder="123 456"
-            icon={LockIcon}
+            placeholder={useBackupCode ? "ABCD-1234-EF56" : "123 456"}
+            icon={useBackupCode ? KeyIcon : LockIcon}
             error={tfaError}
             autoComplete="one-time-code"
           />
@@ -108,7 +138,12 @@ export function Login() {
             rightIcon={<ArrowRightIcon size={15} />}>
             Verify and continue
           </Button>
-          <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={() => setTfaOpen(false)}>
+          <Flex justify="center" align="center" gap="6px">
+            <Checkbox size="sm" colorScheme="orange" isChecked={useBackupCode} onChange={(e) => { setUseBackupCode(e.target.checked); setTfaCode(''); setTfaError(''); }}>
+              <Text fontSize="12px" color="app.subtle">Use a backup code instead</Text>
+            </Checkbox>
+          </Flex>
+          <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={() => { setTfaOpen(false); setTfaCode(''); setTfaError(''); }}>
             Use a different account
           </Button>
         </AuthFormBox>

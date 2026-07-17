@@ -13,6 +13,13 @@ import {
   Input,
   InputGroup,
   InputRightElement,
+  Modal,
+  ModalBody,
+  ModalCloseButton,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+  ModalOverlay,
   Spinner,
   Stack,
   Switch,
@@ -27,6 +34,7 @@ import {
   KeyIcon,
   LockIcon,
   QrCodeIcon,
+  ShieldCheckIcon,
   ShieldIcon,
   Trash2Icon } from 'lucide-react';
 import { PageHeader } from '../components/ui/PageHeader';
@@ -66,12 +74,35 @@ export function Settings() {
   const [twoFactorSetupOpen, setTwoFactorSetupOpen] = useState(false);
   const [twoFactorCode, setTwoFactorCode] = useState('');
   const [twoFactorVerifying, setTwoFactorVerifying] = useState(false);
+  const [twoFactorSetupLoading, setTwoFactorSetupLoading] = useState(false);
+  const [twoFactorQrCode, setTwoFactorQrCode] = useState('');
+  const [twoFactorSecret, setTwoFactorSecret] = useState('');
+  const [twoFactorSetupToken, setTwoFactorSetupToken] = useState('');
+  const [twoFactorBackupCodes, setTwoFactorBackupCodes] = useState<string[] | null>(null);
+  const [twoFactorDisabling, setTwoFactorDisabling] = useState(false);
+  const [twoFactorDisableOpen, setTwoFactorDisableOpen] = useState(false);
+  const [twoFactorDisablePassword, setTwoFactorDisablePassword] = useState('');
+  const [twoFactorDisableError, setTwoFactorDisableError] = useState('');
+  const [backupCodesCopied, setBackupCodesCopied] = useState(false);
 
   const confirmDeleteUser = useDisclosure();
 
   useEffect(() => {
     setProfileForm({ full_name: profile?.full_name ?? '', email: profile?.email ?? '' });
   }, [profile]);
+
+  // Load 2FA status from profile
+  const loadTwoFactorStatus = useCallback(async () => {
+    if (!session?.user) return;
+    const { data } = await supabase
+      .from('profiles')
+      .select('two_factor_enabled')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    setTwoFactorEnabled(!!data?.two_factor_enabled);
+  }, [session]);
+
+  useEffect(() => { loadTwoFactorStatus(); }, [loadTwoFactorStatus]);
 
   const loadNotifPrefs = useCallback(async () => {
     if (!session?.user) return;
@@ -157,23 +188,114 @@ export function Settings() {
     }
   };
 
+  const startTwoFactorSetup = async () => {
+    setTwoFactorSetupLoading(true);
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/two-factor`;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session!.access_token}`,
+        },
+        body: JSON.stringify({ action: 'setup' }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Setup failed', description: data.error, status: 'error', duration: 3000, position: 'top-right' });
+        setTwoFactorSetupLoading(false);
+        return;
+      }
+      setTwoFactorQrCode(data.qrCode);
+      setTwoFactorSecret(data.secret);
+      setTwoFactorSetupToken(data.setupToken);
+      setTwoFactorSetupOpen(true);
+    } catch {
+      toast({ title: 'Setup failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+    }
+    setTwoFactorSetupLoading(false);
+  };
+
   const verifyTwoFactor = async () => {
     if (twoFactorCode.length !== 6) {
       toast({ title: 'Enter the 6-digit code', status: 'error', duration: 2000, position: 'top-right' });
       return;
     }
     setTwoFactorVerifying(true);
-    await new Promise((r) => setTimeout(r, 800));
-    setTwoFactorEnabled(true);
-    setTwoFactorSetupOpen(false);
-    setTwoFactorCode('');
-    setTwoFactorVerifying(false);
-    toast({ title: '2FA enabled', status: 'success', duration: 2000, position: 'top-right' });
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/two-factor`;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session!.access_token}`,
+        },
+        body: JSON.stringify({ action: 'verify', code: twoFactorCode, setupToken: twoFactorSetupToken }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast({ title: 'Verification failed', description: data.error, status: 'error', duration: 3000, position: 'top-right' });
+        setTwoFactorVerifying(false);
+        return;
+      }
+      setTwoFactorBackupCodes(data.backupCodes);
+      setTwoFactorEnabled(true);
+      setTwoFactorCode('');
+      setTwoFactorVerifying(false);
+      toast({ title: '2FA enabled', status: 'success', duration: 2000, position: 'top-right' });
+    } catch {
+      toast({ title: 'Verification failed', description: 'Network error', status: 'error', duration: 3000, position: 'top-right' });
+      setTwoFactorVerifying(false);
+    }
   };
 
-  const disableTwoFactor = () => {
-    setTwoFactorEnabled(false);
-    toast({ title: '2FA disabled', status: 'info', duration: 1800, position: 'top-right' });
+  const disableTwoFactor = async () => {
+    if (!twoFactorDisablePassword) {
+      setTwoFactorDisableError('Enter your password to disable 2FA.');
+      return;
+    }
+    setTwoFactorDisabling(true);
+    setTwoFactorDisableError('');
+    try {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/two-factor`;
+      const res = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${session!.access_token}`,
+        },
+        body: JSON.stringify({ action: 'disable', password: twoFactorDisablePassword }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setTwoFactorDisableError(data.error ?? 'Failed to disable 2FA.');
+        setTwoFactorDisabling(false);
+        return;
+      }
+      setTwoFactorEnabled(false);
+      setTwoFactorDisableOpen(false);
+      setTwoFactorDisablePassword('');
+      setTwoFactorDisabling(false);
+      toast({ title: '2FA disabled', status: 'info', duration: 1800, position: 'top-right' });
+    } catch {
+      setTwoFactorDisableError('Network error. Try again.');
+      setTwoFactorDisabling(false);
+    }
+  };
+
+  const copyBackupCodes = () => {
+    if (!twoFactorBackupCodes) return;
+    navigator.clipboard.writeText(twoFactorBackupCodes.join('\n'));
+    setBackupCodesCopied(true);
+    setTimeout(() => setBackupCodesCopied(false), 2000);
+  };
+
+  const closeBackupCodes = () => {
+    setTwoFactorBackupCodes(null);
+    setTwoFactorSetupOpen(false);
+    setTwoFactorQrCode('');
+    setTwoFactorSecret('');
+    setTwoFactorSetupToken('');
   };
 
   return (
@@ -338,6 +460,32 @@ export function Settings() {
       </Grid>
 
       <ConfirmDialog isOpen={confirmDeleteUser.isOpen} onClose={confirmDeleteUser.onClose} title="Delete account" message="This will permanently delete your account, all your data, and sign you out. This cannot be undone." confirmLabel="Delete account" danger onConfirm={handleDeleteAccount} />
+
+      {/* Disable 2FA Modal */}
+      <Modal isOpen={twoFactorDisableOpen} onClose={() => { setTwoFactorDisableOpen(false); setTwoFactorDisablePassword(''); setTwoFactorDisableError(''); }} size="sm" isCentered>
+        <ModalOverlay backdropFilter="blur(4px)" />
+        <ModalContent bg="app.surface" borderRadius="16px">
+          <ModalHeader borderBottom="1px solid" borderColor="app.border" pb="14px">
+            <Flex align="center" gap="10px">
+              <Flex w="34px" h="34px" borderRadius="10px" bg="#fde8e8" align="center" justify="center"><LockIcon size={16} color="#c23c3c" /></Flex>
+              <Box><Text fontSize="15px" fontWeight="800">Disable 2FA</Text><Text fontSize="11px" color="app.subtle">Enter your password to confirm</Text></Box>
+            </Flex>
+          </ModalHeader>
+          <ModalCloseButton />
+          <ModalBody py="18px">
+            <Text fontSize="12px" color="app.subtle" mb="14px">Disabling 2FA reduces your account security. This will remove your authenticator app and backup codes.</Text>
+            <FormControl>
+              <FormLabel fontSize="12px">Password</FormLabel>
+              <Input type="password" value={twoFactorDisablePassword} onChange={(e) => setTwoFactorDisablePassword(e.target.value)} size="sm" borderRadius="9px" borderColor="app.border" placeholder="Enter your password" />
+            </FormControl>
+            {twoFactorDisableError && <Text fontSize="11px" color="#c23c3c" mt="8px">{twoFactorDisableError}</Text>}
+          </ModalBody>
+          <ModalFooter borderTop="1px solid" borderColor="app.border" pt="14px">
+            <Button mr="8px" variant="outline" borderColor="app.border" borderRadius="9px" fontSize="12px" onClick={() => { setTwoFactorDisableOpen(false); setTwoFactorDisablePassword(''); setTwoFactorDisableError(''); }}>Cancel</Button>
+            <Button bg="#c23c3c" color="white" _hover={{ bg: '#a52e2e' }} borderRadius="9px" fontSize="12px" fontWeight="600" onClick={disableTwoFactor} isLoading={twoFactorDisabling}>Disable 2FA</Button>
+          </ModalFooter>
+        </ModalContent>
+      </Modal>
     </>
   );
 }
