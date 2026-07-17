@@ -397,7 +397,12 @@ export function Tasks() {
     if (!st) return;
     const newDone = !st.done;
     setSubtasks((prev) => prev.map((s) => s.id === subId ? { ...s, done: newDone, status: newDone ? 'Done' : 'To Do' } : s));
-    await supabase.from('subtasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', subId).eq('user_id', session!.user.id);
+    const { error } = await supabase.from('subtasks').update({ done: newDone, status: newDone ? 'Done' : 'To Do' }).eq('id', subId).eq('user_id', session!.user.id);
+    if (error) {
+      toast({ title: 'Failed to update subtask', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      setSubtasks((prev) => prev.map((s) => s.id === subId ? { ...s, done: st.done, status: st.status } : s));
+      return;
+    }
     const parent = tasks.find((t) => t.id === st.parent_id);
     if (parent) {
       const siblings = subtasks.filter((s) => s.parent_id === st.parent_id);
@@ -410,7 +415,11 @@ export function Tasks() {
 
   const addSubtask = async () => {
     if (!newSubtaskTitle.trim() || !newSubtaskParent) return;
-    const { data } = await supabase.from('subtasks').insert({ user_id: session!.user.id, parent_id: newSubtaskParent, title: newSubtaskTitle.trim(), status: 'To Do' }).select().maybeSingle();
+    const { data, error } = await supabase.from('subtasks').insert({ user_id: session!.user.id, parent_id: newSubtaskParent, title: newSubtaskTitle.trim(), status: 'To Do' }).select().maybeSingle();
+    if (error) {
+      toast({ title: 'Failed to add subtask', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+      return;
+    }
     if (data) {
       setSubtasks((prev) => [...prev, data as Subtask]);
       const parent = tasks.find((t) => t.id === newSubtaskParent);
