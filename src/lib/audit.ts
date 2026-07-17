@@ -1,5 +1,22 @@
 import { supabase } from './supabase';
 
+let ipPromise: Promise<string | null> | null = null;
+
+export function getClientIp(): Promise<string | null> {
+  if (ipPromise) return ipPromise;
+  ipPromise = (async () => {
+    try {
+      const res = await fetch('https://api.ipify.org?format=json');
+      const data = await res.json();
+      return (data.ip as string) ?? null;
+    } catch {
+      ipPromise = null;
+      return null;
+    }
+  })();
+  return ipPromise;
+}
+
 type AuditActionType = 'login' | 'logout' | 'signup' | 'password_reset' | 'create' | 'update' | 'delete' | 'read' | 'export';
 
 type WriteAuditParams = {
@@ -44,6 +61,7 @@ export async function writeAuditLog({
   if (!userId) return;
   const ua = navigator.userAgent;
   const { browser, os, deviceType } = parseUserAgent(ua);
+  const ipAddress = await getClientIp();
 
   await supabase.from('audit_logs').insert({
     user_id: userId,
@@ -52,6 +70,7 @@ export async function writeAuditLog({
     entity_type: entityType ?? null,
     entity_id: entityId ?? null,
     metadata,
+    ip_address: ipAddress,
     user_agent: ua,
     browser,
     os,
