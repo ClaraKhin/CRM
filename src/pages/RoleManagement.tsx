@@ -136,35 +136,6 @@ export function RoleManagement() {
 
   const countPerms = (perms: Record<string, boolean>) => Object.entries(perms).filter(([, v]) => v).length;
 
-  const togglePerm = async (key: string) => {
-    if (!selectedRole || !session?.user) return;
-    const newVal = !selectedRole.permissions[key];
-    const newPerms = { ...selectedRole.permissions, [key]: newVal };
-    setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: newPerms } : r));
-    const { error } = await supabase.from('roles').update({ permissions: newPerms }).eq('id', selectedRole.id);
-    if (error) {
-      toast({ title: 'Failed to update permission', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: selectedRole.permissions } : r));
-      return;
-    }
-    toast({ title: newVal ? 'Permission granted' : 'Permission revoked', status: 'success', duration: 1200, position: 'top-right' });
-  };
-
-  const toggleResourceAll = async (resource: ResourceDef, enable: boolean) => {
-    if (!selectedRole || !session?.user) return;
-    const updates: Record<string, boolean> = {};
-    resource.actions.forEach((a) => { updates[permKey(resource.key, a)] = enable; });
-    const newPerms = { ...selectedRole.permissions, ...updates };
-    setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: newPerms } : r));
-    const { error } = await supabase.from('roles').update({ permissions: newPerms }).eq('id', selectedRole.id);
-    if (error) {
-      toast({ title: 'Failed to update permissions', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
-      setRoles((prev) => prev.map((r) => r.id === selectedRole.id ? { ...r, permissions: selectedRole.permissions } : r));
-      return;
-    }
-    toast({ title: enable ? `${resource.label} — full access` : `${resource.label} — access revoked`, status: 'success', duration: 1200, position: 'top-right' });
-  };
-
   const openCreate = () => {
     setEditingId(null);
     setForm({ name: '', description: '' });
@@ -315,16 +286,12 @@ export function RoleManagement() {
                           return (
                             <Flex key={action} justify="center" align="center">
                               <Box
-                                as="button"
                                 w="28px" h="28px" borderRadius="8px"
                                 bg={enabled ? `${meta.color}1a` : 'transparent'}
                                 border="1px solid"
                                 borderColor={enabled ? meta.color : 'app.border'}
                                 display="flex" alignItems="center" justifyContent="center"
-                                cursor="pointer"
-                                _hover={{ bg: enabled ? `${meta.color}2a` : 'app.surfaceAlt', transform: 'scale(1.08)' }}
-                                transition="all .15s ease"
-                                onClick={(e) => { e.stopPropagation(); togglePerm(key); }}>
+                                cursor="default">
                                 {enabled && <CheckIcon size={14} color={meta.color} strokeWidth={3} />}
                               </Box>
                             </Flex>
@@ -333,16 +300,12 @@ export function RoleManagement() {
                         {/* Toggle all */}
                         <Flex justify="center" align="center">
                           <Box
-                            as="button"
                             w="28px" h="28px" borderRadius="8px"
                             bg={allOn ? '#1c8a5c1a' : 'transparent'}
                             border="1px solid"
                             borderColor={allOn ? '#1c8a5c' : 'app.border'}
                             display="flex" alignItems="center" justifyContent="center"
-                            cursor="pointer"
-                            _hover={{ bg: allOn ? '#1c8a5c2a' : 'app.surfaceAlt', transform: 'scale(1.08)' }}
-                            transition="all .15s ease"
-                            onClick={(e) => { e.stopPropagation(); toggleResourceAll(resource, !allOn); }}>
+                            cursor="default">
                             {allOn && <CheckIcon size={14} color="#1c8a5c" strokeWidth={3} />}
                           </Box>
                         </Flex>
@@ -366,10 +329,6 @@ export function RoleManagement() {
                         p="12px"
                         bg={enabled ? '#1c8a5c1a' : 'app.surfaceAlt'}
                         borderRadius="10px"
-                        cursor="pointer"
-                        onClick={() => togglePerm(perm.key)}
-                        _hover={{ bg: enabled ? '#1c8a5c2a' : 'app.border' }}
-                        transition="background .15s ease"
                         border="1px solid"
                         borderColor={enabled ? '#1c8a5c' : 'transparent'}>
                         <Box
