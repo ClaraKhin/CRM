@@ -66,6 +66,7 @@ export function Calendar() {
   const [saving, setSaving] = useState(false);
   const [dragEventId, setDragEventId] = useState<string | null>(null);
   const [dragOverDay, setDragOverDay] = useState<number | null>(null);
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   const [form, setForm] = useState({ title: '', type: 'Meeting', event_date: '', time: '09:00', sync: '', description: '' });
 
   const load = useCallback(async () => {
@@ -101,6 +102,7 @@ export function Calendar() {
   };
 
   const openEdit = (event: Event) => {
+    setOpenPopoverId(null);
     setEditing(event);
     setForm({ title: event.title, type: event.type, event_date: event.event_date, time: event.time, sync: event.sync ?? '', description: event.description });
     formDrawer.onOpen();
@@ -226,7 +228,7 @@ export function Calendar() {
                       <>
                         <Text fontSize="11px" fontWeight={isToday(day) ? '800' : '600'} color={isToday(day) ? '#e9683f' : 'app.subtle'} mb="4px">{day}</Text>
                         {dayEvents.map((event) => (
-                          <Popover key={event.id} trigger="click" placement="top" gutter={8}>
+                          <Popover key={event.id} trigger="click" placement="top" gutter={8} isOpen={openPopoverId === event.id} onOpen={() => setOpenPopoverId(event.id)} onClose={() => setOpenPopoverId(null)}>
                             <PopoverTrigger>
                               <Box
                                 draggable
@@ -279,7 +281,7 @@ export function Calendar() {
                     {dayEvents.length === 0 ? (
                       <Text fontSize="11px" color="app.faint">No events</Text>
                     ) : dayEvents.map((event) => (
-                      <Popover key={event.id} trigger="click" placement="right" gutter={8}>
+                      <Popover key={event.id} trigger="click" placement="right" gutter={8} isOpen={openPopoverId === event.id} onOpen={() => setOpenPopoverId(event.id)} onClose={() => setOpenPopoverId(null)}>
                         <PopoverTrigger>
                           <Flex
                             align="center"
@@ -310,7 +312,7 @@ export function Calendar() {
             {events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).length === 0 ? (
               <Text py="40px" textAlign="center" fontSize="13px" color="app.faint">No events today. Click "New event" to add one.</Text>
             ) : events.filter((e) => new Date(e.event_date).toDateString() === today.toDateString()).map((event) => (
-              <Popover key={event.id} trigger="click" placement="right" gutter={8}>
+              <Popover key={event.id} trigger="click" placement="right" gutter={8} isOpen={openPopoverId === event.id} onOpen={() => setOpenPopoverId(event.id)} onClose={() => setOpenPopoverId(null)}>
                 <PopoverTrigger>
                   <Flex align="center" gap="10px" py="12px" borderBottom="1px solid" borderColor="app.border" cursor="pointer">
                     <Text fontSize="11px" fontWeight="600" color={typeColor[event.type]} w="50px">{event.time}</Text>
