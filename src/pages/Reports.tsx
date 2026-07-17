@@ -24,6 +24,7 @@ import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
 import { exportToCsv, exportToJson } from '../lib/crud';
+import { useProfileOwners } from '../lib/useProfileOwners';
 
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const REPORT_TYPES = ['Revenue', 'Lead Conversion', 'Sales Funnel', 'Team Performance', 'Lost Reasons', 'Customer Analysis'];
@@ -69,7 +70,8 @@ export function Reports() {
   const targetModal = useDisclosure();
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_filter: 'All', min_value: '' });
+  const [form, setForm] = useState({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_id: 'All', min_value: '' });
+  const { owners: profileOwners, loading: loadingOwners } = useProfileOwners();
 
   const [targets, setTargets] = useState<Target[]>([]);
   const [loadingTargets, setLoadingTargets] = useState(true);
@@ -171,7 +173,7 @@ export function Reports() {
     notify('Exported to PDF');
   };
 
-  const openCreate = () => { setForm({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_filter: 'All', min_value: '' }); formDrawer.onOpen(); };
+  const openCreate = () => { setForm({ name: '', type: 'Revenue', date_range: 'This month', format: 'PDF', owner_id: 'All', min_value: '' }); formDrawer.onOpen(); };
 
   const handleSaveReport = async () => {
     if (!form.name.trim()) { toast({ title: 'Report name is required', status: 'error', duration: 2000, position: 'top-right' }); return; }
@@ -179,7 +181,7 @@ export function Reports() {
     const { error } = await supabase.from('api_sync_connections').insert({
       user_id: session!.user.id, name: form.name, provider: 'report_store',
       endpoint_url: '', auth_type: 'none', status: 'active',
-      config: { type: form.type, date_range: form.date_range, format: form.format, owner_filter: form.owner_filter, min_value: form.min_value }
+      config: { type: form.type, date_range: form.date_range, format: form.format, owner_id: form.owner_id, min_value: form.min_value }
     });
     if (!error) { toast({ title: 'Report saved', status: 'success', duration: 2000, position: 'top-right' }); formDrawer.onClose(); load(); }
     setSaving(false);
@@ -353,9 +355,10 @@ export function Reports() {
           </Select>
         </FormControl>
         <FormControl>
-          <FormLabel fontSize="12px">Owner filter</FormLabel>
-          <Select value={form.owner_filter} onChange={(e) => setForm({ ...form, owner_filter: e.target.value })} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
-            <option>All</option><option>Renee Walker</option><option>Marcus Chen</option><option>Priya Nair</option><option>Diego Alvarez</option>
+          <FormLabel fontSize="12px">Owner</FormLabel>
+          <Select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} isDisabled={loadingOwners} size="sm" borderRadius="9px" borderColor="app.border" fontSize="13px">
+            <option value="All">{loadingOwners ? 'Loading users...' : 'All'}</option>
+            {profileOwners.map((owner) => <option key={owner.id} value={owner.id}>{owner.name}</option>)}
           </Select>
         </FormControl>
         <FormControl>
