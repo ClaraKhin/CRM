@@ -100,7 +100,7 @@ export function Login() {
 
   const fillDemo = () => {
     setEmail('demo@1cngcrm.com');
-    setPassword('demo1234');
+    setPassword('Demo1234!');
   };
 
   if (tfaOpen) {
