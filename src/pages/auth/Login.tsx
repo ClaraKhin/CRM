@@ -8,7 +8,7 @@ import {
   Link as ChakraLink,
   Text,
   useToast } from '@chakra-ui/react';
-import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon } from 'lucide-react';
+import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon, KeyIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { AuthField, AuthFormBox } from '../../components/auth/AuthField';
@@ -29,6 +29,10 @@ export function Login() {
   const [tfaOpen, setTfaOpen] = useState(false);
   const [tfaCode, setTfaCode] = useState('');
   const [tfaError, setTfaError] = useState('');
+  const [pendingEmail, setPendingEmail] = useState("");
+  const [pendingPassword, setPendingPassword] = useState("");
+  const [isBackupCode, setIsBackupCode] = useState(false);
+
 
   const validate = () => {
     const e: { email?: string; password?: string } = {};
@@ -50,6 +54,23 @@ export function Login() {
       toast({ title: 'Sign in failed', description: result.error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
+
+    if(!result.twoFactorRequired){
+      toast({
+        title: "Signed in successfully",
+        status: 'success',
+        duration: 100,
+        position: 'top-right'
+      });
+      navigate(from, {replace:true});
+      return
+    }
+
+    setPendingEmail(email.trim());
+    setPendingPassword(password);
+    setTfaCode('');
+    setTfaError('');
+    setIsBackupCode(false);
     setTfaOpen(true);
   };
 
