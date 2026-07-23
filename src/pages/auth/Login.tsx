@@ -278,13 +278,15 @@ export function Login() {
                 type="submit"
                 h="48px"
                 borderRadius="12px"
-                bg="white"
-                color="navy.900"
-                _hover={{ bg: 'gray.100' }}
+                bg="brand.500"
+                color="white"
+                _hover={{ bg: 'brand.600' }}
+                _active={{ bg: 'brand.700' }}
                 fontSize="15px"
                 fontWeight="700"
                 isLoading={submitting}
-                loadingText="Verifying">
+                loadingText="Verifying"
+                isDisabled={isBackupCode ? tfaCode.length < 6 : tfaCode.length !== 6}>
                 Verify & Continue
               </Button>
 
@@ -294,7 +296,8 @@ export function Login() {
                   variant="link"
                   size="sm"
                   fontSize="12px"
-                  color="brand.600"
+                  color="brand.400"
+                  fontWeight="600"
                   onClick={() => {
                     setIsBackupCode((v) => !v);
                     setTfaCode('');
@@ -304,8 +307,17 @@ export function Login() {
                 </Button>
               </Flex>
 
-              <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={switchToCredentials}>
-                ← Back to login
+              <Button
+                variant="outline"
+                size="sm"
+                fontSize="12px"
+                fontWeight="600"
+                color="app.subtle"
+                borderColor="app.border"
+                borderRadius="9px"
+                _hover={{ bg: 'app.surfaceAlt', color: 'app.text' }}
+                onClick={switchToCredentials}>
+                Back to login
               </Button>
             </AuthFormBox>
           </Box>

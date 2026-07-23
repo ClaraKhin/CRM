@@ -1,7 +1,6 @@
 import React from 'react';
 import { Box, Flex, Icon, Text } from '@chakra-ui/react';
-import { BotIcon, CheckCircleIcon, ShieldCheckIcon, SparklesIcon, TrendingUpIcon, ZapIcon } from 'lucide-react';
-import { Link as RouterLink } from 'react-router-dom';
+import { BotIcon, ShieldCheckIcon, SparklesIcon, TrendingUpIcon, ZapIcon } from 'lucide-react';
 
 type AuthLayoutProps = {
   title: string;
@@ -103,13 +102,6 @@ export function AuthLayout({ title, subtitle, children, footer }: AuthLayoutProp
           {children}
 
           {footer && <Text mt="24px" fontSize="12px" color="app.subtle" textAlign="center">{footer}</Text>}
-
-          <Flex mt="22px" align="center" justify="center" gap="6px">
-            <Icon as={CheckCircleIcon} boxSize="13px" color="#2d9c79" />
-            <Text mt="0" fontSize="11px" color="app.faint">
-              <RouterLink to="/">← Back to dashboard</RouterLink>
-            </Text>
-          </Flex>
         </Box>
       </Flex>
     </Flex>
