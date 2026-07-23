@@ -42,6 +42,7 @@ import { Card, CardHeader } from '../components/ui/Card';
 import { ConfirmDialog } from '../components/ui/ConfirmDialog';
 import { supabase, ROLE_LABELS } from '../lib/supabase';
 import { useAuth } from '../context/AuthContext';
+import QRCode from 'qrcode';
 
 const NOTIF_ITEMS = [
   { key: 'email', label: 'Email notifications', desc: 'Receive activity updates via email' },
@@ -208,8 +209,9 @@ export function Settings() {
       }
       setTwoFactorSecret(data.secret);
       setTwoFactorSetupToken(data.setupToken);
-      // Generate QR code via Google Charts API (no npm dependency needed)
-      setTwoFactorQrCode(`https://chart.googleapis.com/chart?cht=qr&chs=200x200&chl=${encodeURIComponent(data.otpauthUri)}`);
+      // Generate QR code locally and render as a data URL
+      const qrDataUrl = await QRCode.toDataURL(data.otpauthUri, { width: 200, margin: 2 });
+      setTwoFactorQrCode(qrDataUrl);
       setTwoFactorSetupOpen(true);
     } catch (err: any) {
       toast({ title: 'Setup failed', description: err?.message ?? 'Network error', status: 'error', duration: 3000, position: 'top-right' });
