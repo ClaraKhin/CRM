@@ -4,11 +4,10 @@ import {
   Button,
   Checkbox,
   Flex,
-  HStack,
   Link as ChakraLink,
   Text,
   useToast } from '@chakra-ui/react';
-import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon, KeyIcon } from 'lucide-react';
+import { ArrowRightIcon, KeyIcon, LockIcon, MailIcon, ShieldCheckIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { AuthField, AuthFormBox } from '../../components/auth/AuthField';
@@ -29,10 +28,9 @@ export function Login() {
   const [tfaOpen, setTfaOpen] = useState(false);
   const [tfaCode, setTfaCode] = useState('');
   const [tfaError, setTfaError] = useState('');
-  const [pendingEmail, setPendingEmail] = useState("");
-  const [pendingPassword, setPendingPassword] = useState("");
+  const [pendingEmail, setPendingEmail] = useState('');
+  const [pendingPassword, setPendingPassword] = useState('');
   const [isBackupCode, setIsBackupCode] = useState(false);
-
 
   const validate = () => {
     const e: { email?: string; password?: string } = {};
@@ -47,23 +45,20 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
+
     setSubmitting(true);
     const result = await signIn(email.trim(), password, remember);
     setSubmitting(false);
+
     if (result.error) {
       toast({ title: 'Sign in failed', description: result.error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
 
-    if(!result.twoFactorRequired){
-      toast({
-        title: "Signed in successfully",
-        status: 'success',
-        duration: 100,
-        position: 'top-right'
-      });
-      navigate(from, {replace:true});
-      return
+    if (!result.twoFactorRequired) {
+      toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
+      navigate(from, { replace: true });
+      return;
     }
 
     setPendingEmail(email.trim());
@@ -74,82 +69,55 @@ export function Login() {
     setTfaOpen(true);
   };
 
-  // const verifyTfa = (e: React.FormEvent) => {
-  //   e.preventDefault();
-  //   if (tfaCode.replace(/\s/g, '').length !== 6) {
-  //     setTfaError('Enter the 6-digit code from your authenticator app.');
-  //     return;
-  //   }
-  //   setTfaError('');
-  //   setSubmitting(true);
-  //   setTimeout(() => {
-  //     setSubmitting(false);
-  //     toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
-  //     navigate(from, { replace: true });
-  //   }, 600);
-  // };
-
   const verifyTfa = async (e: React.FormEvent) => {
-  e.preventDefault();
+    e.preventDefault();
 
-  let normalizedCode = tfaCode.trim().replace(/\s/g, '');
+    let normalizedCode = tfaCode.trim().replace(/\s/g, '');
 
-  if (isBackupCode) {
-    normalizedCode = normalizedCode.toUpperCase();
-    if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
-      setTfaError('Enter a valid backup code (XXXX-XXXX-XXXX).');
+    if (isBackupCode) {
+      normalizedCode = normalizedCode.toUpperCase();
+      if (!/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/.test(normalizedCode)) {
+        setTfaError('Enter a valid backup code (XXXX-XXXX-XXXX).');
+        return;
+      }
+    } else {
+      if (!/^\d{6}$/.test(normalizedCode)) {
+        setTfaError('Enter the 6-digit code from your authenticator app.');
+        return;
+      }
+    }
+
+    setTfaError('');
+    setSubmitting(true);
+
+    const result = await complete2FALogin(
+      pendingEmail,
+      pendingPassword,
+      normalizedCode,
+      isBackupCode,
+      remember
+    );
+
+    setSubmitting(false);
+
+    if (result.error) {
+      toast({ title: 'Verification failed', description: result.error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
-  } else {
-    if (!/^\d{6}$/.test(normalizedCode)) {
-      setTfaError('Enter the 6-digit code from your authenticator app.');
-      return;
-    }
-  }
 
-  setTfaError('');
-  setSubmitting(true);
+    toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
+    navigate(from, { replace: true });
+  };
 
-  const result = await complete2FALogin(
-    pendingEmail,
-    pendingPassword,
-    normalizedCode,
-    isBackupCode,
-    remember
-  );
-
-  setSubmitting(false);
-
-  if (result.error) {
-    toast({
-      title: 'Verification failed',
-      description: result.error.message,
-      status: 'error',
-      duration: 3000,
-      position: 'top-right',
-    });
-    return;
-  }
-
-  toast({
-    title: 'Signed in successfully',
-    status: 'success',
-    duration: 1800,
-    position: 'top-right',
-  });
-
-  navigate(from, { replace: true });
-};
-
-const switchAccount = () => {
-  setTfaOpen(false);
-  setTfaCode('');
-  setTfaError('');
-  setIsBackupCode(false);
-  setPendingEmail('');
-  setPendingPassword('');
-  setPassword('');
-};
+  const switchAccount = () => {
+    setTfaOpen(false);
+    setTfaCode('');
+    setTfaError('');
+    setIsBackupCode(false);
+    setPendingEmail('');
+    setPendingPassword('');
+    setPassword('');
+  };
 
   const fillDemo = () => {
     setEmail('demo@1cngcrm.com');
@@ -174,10 +142,9 @@ const switchAccount = () => {
             placeholder={isBackupCode ? 'XXXX-XXXX-XXXX' : '123 456'}
             icon={isBackupCode ? KeyIcon : LockIcon}
             error={tfaError}
-            autoComplete={isBackupCode ? undefined : 'one-time-code'}
-            />
-            
-            <Button
+            autoComplete={isBackupCode ? 'off' : 'one-time-code'}
+          />
+          <Button
             variant="link"
             size="sm"
             fontSize="12px"
@@ -186,10 +153,9 @@ const switchAccount = () => {
               setIsBackupCode((v) => !v);
               setTfaCode('');
               setTfaError('');
-              }}
-              >
-                {isBackupCode ? 'Use authenticator code instead' : 'Use a backup code'}
-                </Button>
+            }}>
+            {isBackupCode ? 'Use authenticator code instead' : 'Use a backup code'}
+          </Button>
           <Button
             type="button"
             h="44px"
@@ -205,7 +171,7 @@ const switchAccount = () => {
             rightIcon={<ArrowRightIcon size={15} />}>
             Verify and continue
           </Button>
-          <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={() => setTfaOpen(false)}>
+          <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={switchAccount}>
             Use a different account
           </Button>
         </AuthFormBox>
@@ -272,7 +238,7 @@ const switchAccount = () => {
             Sign in
           </Button>
           <Box>
-            <Button size="sm" variant="outline" borderColor="app.border" borderRadius="10px" fontSize="12px" w="full" onClick={switchAccount}>
+            <Button size="sm" variant="outline" borderColor="app.border" borderRadius="10px" fontSize="12px" w="full" onClick={fillDemo}>
               Use demo account
             </Button>
           </Box>
