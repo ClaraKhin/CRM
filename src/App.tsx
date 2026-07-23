@@ -13,6 +13,7 @@ import { Customers } from './pages/Customers';
 import { Products } from './pages/Products';
 import { Quotes } from './pages/Quotes';
 import { Invoices } from './pages/Invoices';
+import { Payments } from './pages/sales/Payments';
 import { Tasks } from './pages/Tasks';
 import { Calendar } from './pages/Calendar';
 import { Reports } from './pages/Reports';
@@ -69,6 +70,7 @@ export function App() {
                   <Route path="/products" element={<Products />} />
                   <Route path="/quotes" element={<Quotes />} />
                   <Route path="/invoices" element={<Invoices />} />
+                  <Route path="/payments" element={<Payments />} />
                   <Route path="/tasks" element={<Tasks />} />
                   <Route path="/calendar" element={<Calendar />} />
                   <Route path="/reports" element={<Reports />} />

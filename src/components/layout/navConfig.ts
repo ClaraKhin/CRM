@@ -4,6 +4,7 @@ import {
   ChartNoAxesCombinedIcon,
   ClipboardListIcon,
   ContactRoundIcon,
+  CreditCardIcon,
   FileTextIcon,
   GaugeIcon,
   HistoryIcon,
@@ -64,6 +65,12 @@ export const navItems: NavItem[] = [
   label: 'Invoices',
   path: '/invoices',
   icon: ReceiptTextIcon,
+  section: 'Sales'
+},
+{
+  label: 'Payments',
+  path: '/payments',
+  icon: CreditCardIcon,
   section: 'Sales'
 },
 { label: 'Tasks', path: '/tasks', icon: ClipboardListIcon, section: 'Sales' },
