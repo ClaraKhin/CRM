@@ -243,6 +243,7 @@ export function Settings() {
       }
       setTwoFactorBackupCodes(data.backupCodes);
       setTwoFactorEnabled(true);
+      setTwoFactorSetupOpen(false);
       setTwoFactorCode('');
       setTwoFactorVerifying(false);
       toast({ title: '2FA enabled', status: 'success', duration: 2000, position: 'top-right' });
@@ -363,29 +364,36 @@ export function Settings() {
               <Text fontWeight="700" fontSize="14px">Two-Factor Authentication</Text>
             </Flex>
 
-            {/* Backup codes display (shown once after enabling) */}
-            {twoFactorBackupCodes && (
-              <Box mb="16px" p="18px" bg="#fff8e8" borderRadius="12px" border="1px solid" borderColor="#e8c84a">
-                <Flex align="center" gap="8px" mb="10px">
-                  <ShieldCheckIcon size={16} color="#b5760f" />
-                  <Text fontSize="13px" fontWeight="700" color="#b5760f">Save your backup codes</Text>
-                </Flex>
-                <Text fontSize="11px" color="app.subtle" mb="12px">Store these one-time codes in a safe place. Each can be used once if you lose access to your authenticator app.</Text>
-                <Box bg="white" p="12px" borderRadius="8px" border="1px solid" borderColor="app.border" mb="12px">
-                  <Grid templateColumns="repeat(2, 1fr)" gap="6px">
-                    {twoFactorBackupCodes.map((c) => (
-                      <Text key={c} fontSize="12px" fontFamily="monospace" fontWeight="600" color="app.text">{c}</Text>
-                    ))}
-                  </Grid>
-                </Box>
-                <HStack spacing="8px">
-                  <Button size="sm" bg="navy.600" color="white" borderRadius="8px" fontSize="12px" onClick={copyBackupCodes} leftIcon={backupCodesCopied ? <CheckIcon size={13} /> : undefined}>
-                    {backupCodesCopied ? 'Copied' : 'Copy codes'}
-                  </Button>
-                  <Button size="sm" variant="outline" borderColor="app.border" borderRadius="8px" fontSize="12px" onClick={closeBackupCodes}>I&apos;ve saved them</Button>
-                </HStack>
-              </Box>
-            )}
+            {/* Backup codes modal (shown once after enabling) */}
+            <Modal isOpen={!!twoFactorBackupCodes} onClose={closeBackupCodes} isCentered closeOnOverlayClick={false} closeOnEsc={false} size="md">
+              <ModalOverlay />
+              <ModalContent bg="#fff8e8" border="1px solid" borderColor="#e8c84a" borderRadius="16px" p="10px">
+                <ModalHeader pb="8px">
+                  <Flex align="center" gap="8px">
+                    <ShieldCheckIcon size={18} color="#b5760f" />
+                    <Text fontSize="14px" fontWeight="700" color="#b5760f">Save your backup codes</Text>
+                  </Flex>
+                </ModalHeader>
+                <ModalBody>
+                  <Text fontSize="12px" color="app.subtle" mb="12px">Store these one-time codes in a safe place. Each can be used once if you lose access to your authenticator app.</Text>
+                  <Box bg="white" p="12px" borderRadius="8px" border="1px solid" borderColor="app.border" mb="12px">
+                    <Grid templateColumns="repeat(2, 1fr)" gap="6px">
+                      {twoFactorBackupCodes?.map((c) => (
+                        <Text key={c} fontSize="12px" fontFamily="monospace" fontWeight="600" color="app.text">{c}</Text>
+                      ))}
+                    </Grid>
+                  </Box>
+                </ModalBody>
+                <ModalFooter>
+                  <HStack spacing="8px">
+                    <Button size="sm" bg="navy.600" color="white" borderRadius="8px" fontSize="12px" onClick={copyBackupCodes} leftIcon={backupCodesCopied ? <CheckIcon size={13} /> : undefined}>
+                      {backupCodesCopied ? 'Copied' : 'Copy codes'}
+                    </Button>
+                    <Button size="sm" variant="outline" borderColor="app.border" borderRadius="8px" fontSize="12px" onClick={closeBackupCodes}>I&apos;ve saved them</Button>
+                  </HStack>
+                </ModalFooter>
+              </ModalContent>
+            </Modal>
 
             {!twoFactorEnabled && !twoFactorSetupOpen && !twoFactorBackupCodes && (
               <Box>
