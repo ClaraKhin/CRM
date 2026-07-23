@@ -366,30 +366,34 @@ export function Settings() {
 
             {/* Backup codes modal (shown once after enabling) */}
             <Modal isOpen={!!twoFactorBackupCodes} onClose={closeBackupCodes} isCentered closeOnOverlayClick={false} closeOnEsc={false} size="md">
-              <ModalOverlay />
-              <ModalContent bg="#fff8e8" border="1px solid" borderColor="#e8c84a" borderRadius="16px" p="10px">
-                <ModalHeader pb="8px">
-                  <Flex align="center" gap="8px">
-                    <ShieldCheckIcon size={18} color="#b5760f" />
-                    <Text fontSize="14px" fontWeight="700" color="#b5760f">Save your backup codes</Text>
+              <ModalOverlay bg="blackAlpha.700" backdropFilter="blur(4px)" />
+              <ModalContent bg="navy.700" border="1px solid" borderColor="navy.500" borderRadius="20px" p="20px" color="white">
+                <ModalHeader pb="12px" borderBottom="1px solid" borderColor="navy.500">
+                  <Flex align="center" gap="10px">
+                    <Flex w="36px" h="36px" borderRadius="10px" bg="brand.500" align="center" justify="center">
+                      <ShieldCheckIcon size={18} color="white" />
+                    </Flex>
+                    <Text fontSize="16px" fontWeight="700" color="white">Save your backup codes</Text>
                   </Flex>
                 </ModalHeader>
-                <ModalBody>
-                  <Text fontSize="12px" color="app.subtle" mb="12px">Store these one-time codes in a safe place. Each can be used once if you lose access to your authenticator app.</Text>
-                  <Box bg="white" p="12px" borderRadius="8px" border="1px solid" borderColor="app.border" mb="12px">
-                    <Grid templateColumns="repeat(2, 1fr)" gap="6px">
-                      {twoFactorBackupCodes?.map((c) => (
-                        <Text key={c} fontSize="12px" fontFamily="monospace" fontWeight="600" color="app.text">{c}</Text>
-                      ))}
-                    </Grid>
-                  </Box>
+                <ModalBody pt="16px">
+                  <Text fontSize="13px" color="whiteAlpha.700" mb="16px">Store these one-time codes in a safe place. Each can be used once if you lose access to your authenticator app.</Text>
+                  <Grid templateColumns="repeat(2, 1fr)" gap="10px" mb="16px">
+                    {twoFactorBackupCodes?.map((c) => (
+                      <Box key={c} bg="navy.800" borderRadius="8px" p="10px" border="1px solid" borderColor="navy.600">
+                        <Text fontSize="13px" fontFamily="monospace" fontWeight="600" color="brand.200" textAlign="center">{c}</Text>
+                      </Box>
+                    ))}
+                  </Grid>
                 </ModalBody>
                 <ModalFooter>
-                  <HStack spacing="8px">
-                    <Button size="sm" bg="navy.600" color="white" borderRadius="8px" fontSize="12px" onClick={copyBackupCodes} leftIcon={backupCodesCopied ? <CheckIcon size={13} /> : undefined}>
+                  <HStack spacing="10px" w="full" justify="center">
+                    <Button size="sm" bg="brand.500" color="white" borderRadius="10px" fontSize="13px" _hover={{ bg: 'brand.600' }} onClick={copyBackupCodes} leftIcon={backupCodesCopied ? <CheckIcon size={14} /> : undefined}>
                       {backupCodesCopied ? 'Copied' : 'Copy codes'}
                     </Button>
-                    <Button size="sm" variant="outline" borderColor="app.border" borderRadius="8px" fontSize="12px" onClick={closeBackupCodes}>I&apos;ve saved them</Button>
+                    <Button size="sm" variant="outline" borderColor="navy.500" color="white" borderRadius="10px" fontSize="13px" _hover={{ bg: 'navy.600' }} onClick={closeBackupCodes}>
+                      I&apos;ve saved them
+                    </Button>
                   </HStack>
                 </ModalFooter>
               </ModalContent>
