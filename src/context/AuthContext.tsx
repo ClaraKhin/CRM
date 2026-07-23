@@ -31,6 +31,8 @@ type AuthContextValue = {
   profile: Profile | null;
   role: UserRole | null;
   loading: boolean;
+  pending2FA: boolean;
+  clearPending2FA: () => void;
   signIn: (
     email: string,
     password: string,
@@ -85,6 +87,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pending2FA, setPending2FA] = useState(false);
 
   const fetchProfile = useCallback(async (userId: string) => {
     const { data, error } = await supabase
@@ -147,12 +150,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       password: string,
       remember: boolean
     ): Promise<SignInResult> => {
+      setPending2FA(true);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
         options: { captchaToken: undefined }
       });
-      if (error) return { error: { message: friendlyAuthError(error.message) } };
+      if (error) {
+        console.error('signIn error:', error);
+        setPending2FA(false);
+        return { error: { message: friendlyAuthError(error.message) } };
+      }
 
       // Check if 2FA is enabled — query profile
       const { data: profile } = await supabase
@@ -168,6 +176,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       // No 2FA — keep session
+      setPending2FA(false);
       if (!remember && data.session) {
         try {
           const raw = localStorage.getItem('sb-dxxgohdfmcoacdwiyvad-auth-token');
@@ -240,6 +249,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } catch { /* ignore */ }
         }
 
+        setPending2FA(false);
         await writeAudit(authData.user?.id, 'login_2fa', 'login', { email });
         return { error: null };
       } catch {
@@ -277,8 +287,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
     setSession(null);
     setProfile(null);
+    setPending2FA(false);
     await writeAudit(userId, 'logout', 'logout');
   }, [session]);
+
+  const clearPending2FA = useCallback(() => {
+    setPending2FA(false);
+  }, []);
 
   const sendPasswordReset = useCallback(
     async (email: string): Promise<{ error: AuthError | null }> => {
@@ -325,6 +340,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       role: profile?.role ?? null,
       loading,
+      pending2FA,
+      clearPending2FA,
       signIn,
       complete2FALogin,
       signUp,
@@ -338,6 +355,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       session,
       profile,
       loading,
+      pending2FA,
+      clearPending2FA,
       signIn,
       complete2FALogin,
       signUp,

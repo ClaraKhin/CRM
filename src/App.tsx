@@ -33,8 +33,8 @@ import { ResetPassword } from './pages/auth/ResetPassword';
 import { VerifyEmail } from './pages/auth/VerifyEmail';
 
 function PublicOnlyRoute({ children }: { children: React.ReactNode }) {
-  const { session, loading } = useAuth();
-  if (loading) return <>{children}</>;
+  const { session, loading, pending2FA } = useAuth();
+  if (loading || pending2FA) return <>{children}</>;
   if (session) return <Navigate to="/" replace />;
   return <>{children}</>;
 }

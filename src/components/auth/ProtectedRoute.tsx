@@ -10,7 +10,7 @@ type ProtectedRouteProps = {
 };
 
 export function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
-  const { session, role, loading } = useAuth();
+  const { session, role, loading, pending2FA } = useAuth();
   const location = useLocation();
 
   if (loading) {
@@ -37,7 +37,7 @@ export function ProtectedRoute({ children, permission }: ProtectedRouteProps) {
     );
   }
 
-  if (!session) {
+  if (!session || pending2FA) {
     return <Navigate to="/login" state={{ from: location.pathname }} replace />;
   }
 
