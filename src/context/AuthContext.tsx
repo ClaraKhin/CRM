@@ -18,6 +18,13 @@ type SignUpInput = {
   fullName: string;
 };
 
+type SignInResult = {
+  error: AuthError | null;
+  twoFactorRequired?: boolean;
+  pendingEmail?: string;
+  pendingPassword?: string;
+};
+
 type AuthContextValue = {
   session: Session | null;
   user: User | null;
@@ -28,7 +35,14 @@ type AuthContextValue = {
     email: string,
     password: string,
     remember: boolean
-  ) => Promise<{ error: AuthError | null }>;
+  ) => Promise<SignInResult>;
+  complete2FALogin: (
+    email: string,
+    password: string,
+    code: string,
+    useBackupCode: boolean,
+    remember: boolean
+  ) => Promise<SignInResult>;
   signUp: (
     input: SignUpInput
   ) => Promise<{ error: AuthError | null; needsVerify: boolean }>;
@@ -132,35 +146,105 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       email: string,
       password: string,
       remember: boolean
-    ): Promise<{ error: AuthError | null }> => {
+    ): Promise<SignInResult> => {
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
-        options: {
-          captchaToken: undefined
-        }
+        options: { captchaToken: undefined }
       });
       if (error) return { error: { message: friendlyAuthError(error.message) } };
 
-      // Remember-me: Supabase persists sessions regardless, but we respect the
-      // toggle by clearing storage when the user opts out of persistence.
+      // Check if 2FA is enabled — query profile
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('two_factor_enabled')
+        .eq('id', data.user.id)
+        .maybeSingle();
+
+      if (profile?.two_factor_enabled) {
+        // 2FA required — sign out the ephemeral session, don't persist
+        await supabase.auth.signOut();
+        return { error: null, twoFactorRequired: true, pendingEmail: email, pendingPassword: password };
+      }
+
+      // No 2FA — keep session
       if (!remember && data.session) {
-        // Force a non-persistent session by signing out then back in without storage.
-        // Simpler + safe: just note preference and let refresh keep it ephemeral.
-        // We keep the session but mark it ephemeral via sessionStorage only.
         try {
           const raw = localStorage.getItem('sb-dxxgohdfmcoacdwiyvad-auth-token');
           if (raw) {
             sessionStorage.setItem('sb-dxxgohdfmcoacdwiyvad-auth-token', raw);
             localStorage.removeItem('sb-dxxgohdfmcoacdwiyvad-auth-token');
           }
-        } catch {
-          // ignore storage errors
-        }
+        } catch { /* ignore */ }
       }
 
       await writeAudit(data.user?.id, 'login', 'login', { email });
       return { error: null };
+    },
+    []
+  );
+
+  const complete2FALogin = useCallback(
+    async (
+      email: string,
+      password: string,
+      code: string,
+      useBackupCode: boolean,
+      remember: boolean
+    ): Promise<SignInResult> => {
+      const apiUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/two-factor`;
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+      };
+
+      try {
+        const res = await fetch(apiUrl, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            action: 'login',
+            email,
+            password,
+            code,
+            useBackupCode,
+            remember,
+          }),
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          return { error: { message: data.error ?? '2FA verification failed.' } };
+        }
+
+        if (data.twoFactorRequired) {
+          return { error: { message: '2FA code required.' }, twoFactorRequired: true };
+        }
+
+        // 2FA verified — the edge function issued a session. But we need to
+        // set it in the client. We re-sign-in with password (credentials already verified).
+        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+          email, password,
+        });
+        if (authError) {
+          return { error: { message: 'Login failed after 2FA verification.' } };
+        }
+
+        if (!remember && authData.session) {
+          try {
+            const raw = localStorage.getItem('sb-dxxgohdfmcoacdwiyvad-auth-token');
+            if (raw) {
+              sessionStorage.setItem('sb-dxxgohdfmcoacdwiyvad-auth-token', raw);
+              localStorage.removeItem('sb-dxxgohdfmcoacdwiyvad-auth-token');
+            }
+          } catch { /* ignore */ }
+        }
+
+        await writeAudit(authData.user?.id, 'login_2fa', 'login', { email });
+        return { error: null };
+      } catch {
+        return { error: { message: 'Network error during 2FA verification.' } };
+      }
     },
     []
   );
@@ -242,6 +326,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role: profile?.role ?? null,
       loading,
       signIn,
+      complete2FALogin,
       signUp,
       signOut,
       sendPasswordReset,
@@ -254,6 +339,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       profile,
       loading,
       signIn,
+      complete2FALogin,
       signUp,
       signOut,
       sendPasswordReset,

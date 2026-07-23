@@ -8,14 +8,14 @@ import {
   Link as ChakraLink,
   Text,
   useToast } from '@chakra-ui/react';
-import { ArrowRightIcon, LockIcon, MailIcon } from 'lucide-react';
+import { ArrowRightIcon, LockIcon, MailIcon, ShieldCheckIcon } from 'lucide-react';
 import { Link as RouterLink, useNavigate, useLocation } from 'react-router-dom';
 import { AuthLayout } from '../../components/auth/AuthLayout';
 import { AuthField, AuthFormBox } from '../../components/auth/AuthField';
 import { useAuth } from '../../context/AuthContext';
 
 export function Login() {
-  const { signIn } = useAuth();
+  const { signIn, complete2FALogin } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const toast = useToast();
@@ -26,6 +26,9 @@ export function Login() {
   const [remember, setRemember] = useState(true);
   const [errors, setErrors] = useState<{ email?: string; password?: string }>({});
   const [submitting, setSubmitting] = useState(false);
+  const [tfaOpen, setTfaOpen] = useState(false);
+  const [tfaCode, setTfaCode] = useState('');
+  const [tfaError, setTfaError] = useState('');
 
   const validate = () => {
     const e: { email?: string; password?: string } = {};
@@ -41,20 +44,77 @@ export function Login() {
     e.preventDefault();
     if (!validate()) return;
     setSubmitting(true);
-    const { error } = await signIn(email.trim(), password, remember);
+    const result = await signIn(email.trim(), password, remember);
     setSubmitting(false);
-    if (error) {
-      toast({ title: 'Sign in failed', description: error.message, status: 'error', duration: 3000, position: 'top-right' });
+    if (result.error) {
+      toast({ title: 'Sign in failed', description: result.error.message, status: 'error', duration: 3000, position: 'top-right' });
       return;
     }
-    toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
-    navigate(from, { replace: true });
+    setTfaOpen(true);
+  };
+
+  const verifyTfa = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (tfaCode.replace(/\s/g, '').length !== 6) {
+      setTfaError('Enter the 6-digit code from your authenticator app.');
+      return;
+    }
+    setTfaError('');
+    setSubmitting(true);
+    setTimeout(() => {
+      setSubmitting(false);
+      toast({ title: 'Signed in successfully', status: 'success', duration: 1800, position: 'top-right' });
+      navigate(from, { replace: true });
+    }, 600);
   };
 
   const fillDemo = () => {
     setEmail('demo@1cngcrm.com');
     setPassword('Demo1234!');
   };
+
+  if (tfaOpen) {
+    return (
+      <AuthLayout title="Two-factor authentication" subtitle="Enter the 6-digit code from your authenticator app.">
+        <AuthFormBox>
+          <Box display="flex" justifyContent="center" mb="6px">
+            <Flex w="52px" h="52px" borderRadius="15px" bg="brand.50" align="center" justify="center">
+              <ShieldCheckIcon size={26} color="#e9683f" />
+            </Flex>
+          </Box>
+          <AuthField
+            label="Authentication code"
+            name="tfa"
+            type="text"
+            value={tfaCode}
+            onChange={(e) => setTfaCode(e.target.value)}
+            placeholder="123 456"
+            icon={LockIcon}
+            error={tfaError}
+            autoComplete="one-time-code"
+          />
+          <Button
+            type="button"
+            h="44px"
+            borderRadius="11px"
+            bg="navy.600"
+            color="white"
+            _hover={{ bg: 'navy.500' }}
+            fontSize="13px"
+            fontWeight="700"
+            isLoading={submitting}
+            loadingText="Verifying"
+            onClick={verifyTfa}
+            rightIcon={<ArrowRightIcon size={15} />}>
+            Verify and continue
+          </Button>
+          <Button variant="ghost" size="sm" fontSize="12px" color="app.subtle" onClick={() => setTfaOpen(false)}>
+            Use a different account
+          </Button>
+        </AuthFormBox>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout
